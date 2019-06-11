@@ -22,11 +22,17 @@ mkdir -p modules
 find -type f -name *.ko -exec cp '{}' modules \;
 
 Модули в папке modules в корне исходников.
+
 bt_drv.ko
+
 fmradio_drv.ko
+
 gps_drv.ko
+
 wlan_drv.ko
+
 wmt_chrdev_wifi.ko
+
 wmt_drv.ko
 
 Спасибо "vgdn1942" за инструкцию
