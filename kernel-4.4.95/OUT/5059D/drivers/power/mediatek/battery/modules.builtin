@@ -1,4 +1,0 @@
-kernel/drivers/power/mediatek/battery/mtk_battery.ko
-kernel/drivers/power/mediatek/battery/mtk_power_misc.ko
-kernel/drivers/power/mediatek/battery/mtk_gauge_time_service.ko
-kernel/drivers/power/mediatek/battery/mtk_battery_recovery.ko

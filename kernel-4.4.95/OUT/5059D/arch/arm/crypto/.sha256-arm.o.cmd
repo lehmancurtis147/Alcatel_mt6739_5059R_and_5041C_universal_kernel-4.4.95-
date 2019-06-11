@@ -1,1 +1,0 @@
-cmd_arch/arm/crypto/sha256-arm.o := /home/dasmen/Android/Alcatel_1x_5059D_kernel-4.4.95/tools/arm-linux-androideabi-4.9/bin/arm-linux-androidkernel-ld -EL    -r -o arch/arm/crypto/sha256-arm.o arch/arm/crypto/sha256-core.o arch/arm/crypto/sha256_glue.o arch/arm/crypto/sha256_neon_glue.o 

@@ -1,1 +1,0 @@
-cmd_arch/arm/crypto/built-in.o :=  /home/dasmen/Android/Alcatel_1x_5059D_kernel-4.4.95/tools/arm-linux-androideabi-4.9/bin/arm-linux-androidkernel-ld -EL    -r -o arch/arm/crypto/built-in.o arch/arm/crypto/sha256-arm.o arch/arm/crypto/sha512-arm.o arch/arm/crypto/aes-arm-ce.o arch/arm/crypto/sha2-arm-ce.o 

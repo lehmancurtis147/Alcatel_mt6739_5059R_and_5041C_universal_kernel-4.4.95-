@@ -1,7 +1,0 @@
-kernel/drivers/power/mediatek/charger/charger_class.ko
-kernel/drivers/power/mediatek/charger/mtk_charger.ko
-kernel/drivers/power/mediatek/charger/mtk_pdc_intf.ko
-kernel/drivers/power/mediatek/charger/mtk_pe40_intf.ko
-kernel/drivers/power/mediatek/charger/mtk_switch_charging.ko
-kernel/drivers/power/mediatek/charger/mtk_linear_charging.ko
-kernel/drivers/power/mediatek/charger/mtk_chg_type_det.ko

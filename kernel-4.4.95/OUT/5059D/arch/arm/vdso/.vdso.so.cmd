@@ -1,1 +1,0 @@
-cmd_arch/arm/vdso/vdso.so := /home/dasmen/Android/Alcatel_1x_5059D_kernel-4.4.95/tools/arm-linux-androideabi-4.9/bin/arm-linux-androidkernel-objcopy -S  arch/arm/vdso/vdso.so.dbg arch/arm/vdso/vdso.so

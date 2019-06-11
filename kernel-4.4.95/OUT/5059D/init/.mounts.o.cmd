@@ -1,1 +1,0 @@
-cmd_init/mounts.o := /home/dasmen/Android/Alcatel_1x_5059D_kernel-4.4.95/tools/arm-linux-androideabi-4.9/bin/arm-linux-androidkernel-ld -EL    -r -o init/mounts.o init/do_mounts.o init/do_mounts_initrd.o init/do_mounts_dm.o 

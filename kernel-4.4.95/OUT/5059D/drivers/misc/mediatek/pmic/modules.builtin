@@ -1,8 +1,0 @@
-kernel/drivers/misc/mediatek/pmic/mtk_battery_adc_intf.ko
-kernel/drivers/misc/mediatek/pmic/mtk_gauge_class.ko
-kernel/drivers/misc/mediatek/pmic/mtk_gauge_coulomb_service.ko
-kernel/drivers/misc/mediatek/pmic/common/upmu.ko
-kernel/drivers/misc/mediatek/pmic/common/upmu_regulator.ko
-kernel/drivers/misc/mediatek/pmic/common/upmu_debugfs.ko
-kernel/drivers/misc/mediatek/pmic/common/upmu_initial_setting.ko
-kernel/drivers/misc/mediatek/pmic/common/upmu_lbat_service.ko

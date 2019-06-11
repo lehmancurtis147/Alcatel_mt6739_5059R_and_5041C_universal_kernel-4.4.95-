@@ -1,1 +1,0 @@
-cmd_arch/arm/crypto/aes-arm-ce.o := /home/dasmen/Android/Alcatel_1x_5059D_kernel-4.4.95/tools/arm-linux-androideabi-4.9/bin/arm-linux-androidkernel-ld -EL    -r -o arch/arm/crypto/aes-arm-ce.o arch/arm/crypto/aes-ce-core.o arch/arm/crypto/aes-ce-glue.o 
