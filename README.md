@@ -4,11 +4,17 @@
 В мэйкфайле по пути drivers/misc/mediatek/Makefile в самом низу добавляем
 
 obj-$(CONFIG_MODULES) += modules/connectivity/common/
+
 obj-$(CONFIG_MODULES) += modules/connectivity/bt/mt66xx/      не собрался
+
 obj-$(CONFIG_MODULES) += modules/connectivity/fmradio/
+
 obj-$(CONFIG_MODULES) += modules/connectivity/gps/
+
 obj-$(CONFIG_MODULES) += modules/connectivity/wlan/adaptor/   не собрался
+
 obj-$(CONFIG_MODULES) += modules/connectivity/wlan/core/gen2/ не собрался
+
 
 модули которые дают ошибку при сборке закамментены в мэйкфайле. Надо разбираться.
 
