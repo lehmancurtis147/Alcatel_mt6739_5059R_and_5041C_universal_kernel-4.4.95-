@@ -1,6 +1,5 @@
 rm -r -f modules
 mkdir -p modules
-cd repack_boot
 abootimg -x boot.img bootimg.cfg zImage-dtb
 cp ../kernel-4.4.95/OUT/arch/arm/boot/zImage-dtb zImage-dtb
 abootimg --create boot_new.img -f bootimg.cfg -k zImage-dtb -r initrd.img
