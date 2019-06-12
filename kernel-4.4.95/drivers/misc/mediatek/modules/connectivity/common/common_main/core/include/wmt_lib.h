@@ -159,14 +159,11 @@ typedef struct _DEV_WMT_ {
 
 	OSAL_SLEEPABLE_LOCK psm_lock;
 	OSAL_SLEEPABLE_LOCK idc_lock;
-	OSAL_SLEEPABLE_LOCK wlan_lock;
 	/* WMTd thread information */
 	/* struct task_struct *pWmtd;   *//* main thread (wmtd) handle */
 	OSAL_THREAD thread;
 	/* wait_queue_head_t rWmtdWq;  *//*WMTd command wait queue */
 	OSAL_EVENT rWmtdWq;	/* rename */
-	OSAL_THREAD worker_thread;
-	OSAL_EVENT rWmtdWorkerWq;
 	/* ULONG state; *//* bit field of WMT_STAT */
 	OSAL_BIT_OP_VAR state;
 
@@ -198,10 +195,8 @@ typedef struct _DEV_WMT_ {
 
 	OSAL_OP_Q rFreeOpQ;	/* free op queue */
 	OSAL_OP_Q rActiveOpQ;	/* active op queue */
-	OSAL_OP_Q rWorkerOpQ;
 	OSAL_OP arQue[WMT_OP_BUF_SIZE];	/* real op instances */
 	P_OSAL_OP pCurOP;	/* current op */
-	P_OSAL_OP pWorkerOP;	/* current op on worker thread */
 
 	/* cmd str buffer */
 	UINT8 cCmd[NAME_MAX + 1];
@@ -222,8 +217,6 @@ typedef struct _DEV_WMT_ {
 	ENUM_WMTHWVER_TYPE_T eWmtHwVer;
 
 	P_WMT_PATCH_INFO pWmtPatchInfo;
-
-	OSAL_TIMER worker_timer;
 } DEV_WMT, *P_DEV_WMT;
 
 
@@ -278,7 +271,6 @@ extern INT32 wmt_lib_register_thermal_ctrl_cb(thermal_query_ctrl_cb thermal_ctrl
 extern P_OSAL_OP wmt_lib_get_free_op(VOID);
 extern INT32 wmt_lib_put_op_to_free_queue(P_OSAL_OP pOp);
 extern MTK_WCN_BOOL wmt_lib_put_act_op(P_OSAL_OP pOp);
-extern MTK_WCN_BOOL wmt_lib_put_worker_op(P_OSAL_OP pOp);
 
 /* extern ENUM_WMTHWVER_TYPE_T wmt_lib_get_hwver (VOID); */
 extern UINT32 wmt_lib_get_icinfo(ENUM_WMT_CHIPINFO_TYPE_T type);
@@ -314,7 +306,6 @@ MTK_WCN_BOOL wmt_lib_hw_rst(VOID);
 INT32 wmt_lib_reg_rw(UINT32 isWrite, UINT32 offset, PUINT32 pvalue, UINT32 mask);
 INT32 wmt_lib_efuse_rw(UINT32 isWrite, UINT32 offset, PUINT32 pvalue, UINT32 mask);
 INT32 wmt_lib_sdio_ctrl(UINT32 on);
-INT32 wmt_lib_try_pwr_off(VOID);
 
 extern INT32 DISABLE_PSM_MONITOR(VOID);
 extern VOID ENABLE_PSM_MONITOR(VOID);
@@ -323,8 +314,6 @@ extern VOID wmt_lib_psm_lock_release(VOID);
 extern INT32 wmt_lib_psm_lock_aquire(VOID);
 extern VOID wmt_lib_idc_lock_release(VOID);
 extern INT32 wmt_lib_idc_lock_aquire(VOID);
-extern VOID wmt_lib_wlan_lock_release(VOID);
-extern INT32 wmt_lib_wlan_lock_aquire(VOID);
 extern INT32 wmt_lib_set_stp_wmt_last_close(UINT32 value);
 
 extern VOID wmt_lib_set_patch_num(UINT32 num);
@@ -333,8 +322,6 @@ extern MTK_WCN_BOOL wmt_lib_stp_is_btif_fullset_mode(VOID);
 
 extern INT32 wmt_lib_set_current_op(P_DEV_WMT pWmtDev, P_OSAL_OP pOp);
 extern P_OSAL_OP wmt_lib_get_current_op(P_DEV_WMT pWmtDev);
-extern INT32 wmt_lib_set_worker_op(P_DEV_WMT pWmtDev, P_OSAL_OP pOp);
-extern P_OSAL_OP wmt_lib_get_worker_op(P_DEV_WMT pWmtDev);
 extern PUINT8 wmt_lib_get_fwinfor_from_emi(UINT8 section, UINT32 offset, PUINT8 buff, UINT32 len);
 extern INT32 wmt_lib_merge_if_flag_ctrl(UINT32 enable);
 extern INT32 wmt_lib_merge_if_flag_get(UINT32 enable);

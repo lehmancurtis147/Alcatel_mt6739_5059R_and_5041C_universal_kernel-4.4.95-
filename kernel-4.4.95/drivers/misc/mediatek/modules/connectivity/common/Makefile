@@ -27,9 +27,10 @@ ifeq ($(CONFIG_ARM64), y)
 endif
 
 ifeq ($(CONFIG_MTK_CONN_LTE_IDC_SUPPORT),y)
-    ccflags-y += -D WMT_IDC_SUPPORT
+    ccflags-y += -D WMT_IDC_SUPPORT=1
+else
+    ccflags-y += -D WMT_IDC_SUPPORT=0
 endif
-
 ccflags-y += -D MTK_WCN_WMT_STP_EXP_SYMBOL_ABSTRACT
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
@@ -38,6 +39,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/clkbuf_v1
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/clkbuf_v1/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/btif/common/inc
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/$(MTK_PLATFORM)
@@ -124,7 +127,7 @@ ifneq ($(filter "MT6632",$(CONFIG_MTK_COMBO_CHIP)),)
         ccflags-y += -D MTK_WCN_WLAN_GEN4
 endif
 
-ifneq ($(filter "CONSYS_6797" "CONSYS_6759" "CONSYS_6758",$(CONFIG_MTK_COMBO_CHIP)),)
+ifneq ($(filter "CONSYS_6797" "CONSYS_6759" "CONSYS_6758" "CONSYS_6771" "CONSYS_6775",$(CONFIG_MTK_COMBO_CHIP)),)
 	ccflags-y += -D MTK_WCN_WLAN_GEN3
 else ifneq ($(filter "CONSYS_%",$(CONFIG_MTK_COMBO_CHIP)),)
 	ccflags-y += -D MTK_WCN_WLAN_GEN2
@@ -152,10 +155,10 @@ ccflags-y += -D WMT_UART_RX_MODE_WORK=0 # 1. work thread 0. tasklet
 ccflags-y += -D WMT_SDIO_MODE=1
 ccflags-y += -D WMT_CREATE_NODE_DYNAMIC=1
 
-ifneq ($(TARGET_BUILD_VARIANT), user)
-    ccflags-y += -D WMT_DBG_SUPPORT=1
-else
-    ccflags-y += -D WMT_DBG_SUPPORT=0
+ifneq ($(TARGET_BUILD_VARIANT),eng)
+ifeq ($(CONFIG_EXTREME_LOW_RAM), y)
+ccflags-y += -DLOG_STP_DEBUG_DISABLE
+endif
 endif
 
 ifeq ($(CONFIG_ARCH_MT6580), y)

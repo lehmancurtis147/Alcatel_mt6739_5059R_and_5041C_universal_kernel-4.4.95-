@@ -123,6 +123,8 @@
 #define CFG_SUPPORT_SET_CAM_BY_PROC	1
 
 #define CFG_SUPPORT_RSN_SCORE		1
+
+#define CFG_SUPPORT_GAMING_MODE			1
 /*------------------------------------------------------------------------------
  * SLT Option
  *------------------------------------------------------------------------------
@@ -740,7 +742,6 @@
 #define CFG_NEIGHBOR_AP_CHANNEL_NUM				50
 #define CFG_MAX_NUM_OF_CHNL_INFO				50
 #define CFG_SELECT_BSS_BASE_ON_MULTI_PARAM		1
-#define CFG_SELECT_BSS_BASE_ON_RSSI				0
 #define CFG_SUPPORT_VO_ENTERPRISE               1
 #define CFG_NEIGHBOR_AP_CHANNEL_NUM             50
 #define CFG_SUPPORT_WMM_AC                      1

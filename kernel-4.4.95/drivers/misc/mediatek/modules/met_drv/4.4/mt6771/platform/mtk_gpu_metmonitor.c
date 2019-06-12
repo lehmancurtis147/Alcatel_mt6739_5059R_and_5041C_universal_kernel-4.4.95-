@@ -546,13 +546,13 @@ struct metdevice met_gpupwr = {
 static struct delayed_work gpu_pmu_dwork;
 #endif
 
-#define MAX_PMU_STR_LEN (1024 * 5)
+#define MAX_PMU_STR_LEN 1024
 
-static const char help_pmu[] = "  --gpu-pmu				monitor gpu pmu status";
+static const char help_pmu[] = "  --gpu-pmu			 monitor gpu pmu status";
 static const char header_pmu[] = "met-info [000] 0.0: met_gpu_pmu_header: ";
 static char pmu_str[MAX_PMU_STR_LEN];
 static int pmu_cnt;
-static int gpu_pwr_status = 1;
+static int gpu_pwr_status;
 static GPU_PMU *pmu_list;
 
 
@@ -674,12 +674,6 @@ static void gpu_pmu_monitor_stop(void)
 	if (mtk_unregister_gpu_power_change_symbol)
 		mtk_unregister_gpu_power_change_symbol("met_gpu");
 	delete_gpu_pmu_list();
-	/* stop polling counter */
-	if (mtk_get_gpu_pmu_swapnreset_stop_symbol)
-		mtk_get_gpu_pmu_swapnreset_stop_symbol();
-	/* release resource */
-	if (mtk_get_gpu_pmu_deinit_symbol)
-		mtk_get_gpu_pmu_deinit_symbol();
 }
 
 #ifdef GPU_HAL_RUN_PREMPTIBLE

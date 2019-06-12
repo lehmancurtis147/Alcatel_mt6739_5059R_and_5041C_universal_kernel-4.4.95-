@@ -685,45 +685,41 @@ INT32 mtk_wcn_hif_sdio_client_reg(const MTK_WCN_HIF_SDIO_CLTINFO *pinfo)
 				g_hif_sdio_probed_func_list[j].clt_idx = clt_index;
 				/* probed spin unlock */
 				spin_unlock_bh(&g_hif_sdio_lock_info.probed_list_lock);
-				if (g_hif_sdio_probed_func_list[j].func->num != 1
-					|| (g_hif_sdio_probed_func_list[j].on_by_wmt == MTK_WCN_BOOL_TRUE
-					&& g_hif_sdio_probed_func_list[j].func->num == 1)) {
-					/* use worker thread to perform the client's .hif_clt_probe() */
-					clt_probe_worker_info =
-						vmalloc(sizeof(MTK_WCN_HIF_SDIO_CLT_PROBE_WORKERINFO));
-					if (clt_probe_worker_info) {
-						INIT_WORK(&clt_probe_worker_info->probe_work,
-							  hif_sdio_clt_probe_worker);
-						clt_probe_worker_info->registinfo_p =
-							&g_hif_sdio_clt_drv_list[clt_index];
-						clt_probe_worker_info->probe_idx = j;
-						schedule_work(&clt_probe_worker_info->probe_work);
-					}
-					/* 4 <5.1> remember to do claim_irq for the */
-					/* func if it's irq had been released. */
-					if (!(g_hif_sdio_probed_func_list[j].func->irq_handler)) {
-						sdio_claim_host(g_hif_sdio_probed_func_list[j].func);
-						ret =
-							sdio_claim_irq(g_hif_sdio_probed_func_list[j].func,
-								   hif_sdio_irq);
-						mtk_wcn_hif_sdio_irq_flag_set(1);
-						sdio_release_host(g_hif_sdio_probed_func_list[j].func);
-						HIF_SDIO_INFO_FUNC
-							("sdio_claim_irq for func(0x%p) j(%d) v(0x%x) d(0x%x) ok\n",
-							 g_hif_sdio_probed_func_list[j].func, j,
-							 g_hif_sdio_probed_func_list[j].func->vendor,
-							 g_hif_sdio_probed_func_list[j].func->device);
-					}
-					/* 4 <5.2> Reset the block size of the function provided by client */
-					HIF_SDIO_INFO_FUNC("Reset sdio block size: %d!\n",
-							   g_hif_sdio_clt_drv_list[clt_index].
-							   func_info->blk_sz);
-					sdio_claim_host(g_hif_sdio_probed_func_list[j].func);
-					ret = sdio_set_block_size(g_hif_sdio_probed_func_list[j].func,
-								  g_hif_sdio_clt_drv_list
-								  [clt_index].func_info->blk_sz);
-					sdio_release_host(g_hif_sdio_probed_func_list[j].func);
+
+				/* use worker thread to perform the client's .hif_clt_probe() */
+				clt_probe_worker_info =
+				    vmalloc(sizeof(MTK_WCN_HIF_SDIO_CLT_PROBE_WORKERINFO));
+				if (clt_probe_worker_info) {
+					INIT_WORK(&clt_probe_worker_info->probe_work,
+						  hif_sdio_clt_probe_worker);
+					clt_probe_worker_info->registinfo_p =
+					    &g_hif_sdio_clt_drv_list[clt_index];
+					clt_probe_worker_info->probe_idx = j;
+					schedule_work(&clt_probe_worker_info->probe_work);
 				}
+				/* 4 <5.1> remember to do claim_irq for the func if it's irq had been released. */
+				if (!(g_hif_sdio_probed_func_list[j].func->irq_handler)) {
+					sdio_claim_host(g_hif_sdio_probed_func_list[j].func);
+					ret =
+					    sdio_claim_irq(g_hif_sdio_probed_func_list[j].func,
+							   hif_sdio_irq);
+					mtk_wcn_hif_sdio_irq_flag_set(1);
+					sdio_release_host(g_hif_sdio_probed_func_list[j].func);
+					HIF_SDIO_INFO_FUNC
+					    ("sdio_claim_irq for func(0x%p) j(%d) v(0x%x) d(0x%x) ok\n",
+					     g_hif_sdio_probed_func_list[j].func, j,
+					     g_hif_sdio_probed_func_list[j].func->vendor,
+					     g_hif_sdio_probed_func_list[j].func->device);
+				}
+				/* 4 <5.2> Reset the block size of the function provided by client */
+				HIF_SDIO_INFO_FUNC("Reset sdio block size: %d!\n",
+						   g_hif_sdio_clt_drv_list[clt_index].
+						   func_info->blk_sz);
+				sdio_claim_host(g_hif_sdio_probed_func_list[j].func);
+				ret = sdio_set_block_size(g_hif_sdio_probed_func_list[j].func,
+							  g_hif_sdio_clt_drv_list
+							  [clt_index].func_info->blk_sz);
+				sdio_release_host(g_hif_sdio_probed_func_list[j].func);
 			} else {
 				/* probed spin unlock */
 				spin_unlock_bh(&g_hif_sdio_lock_info.probed_list_lock);
@@ -2576,7 +2572,6 @@ wifi_on_exist:
 	} else {
 		/* TODO: [FixMe][George] check if clt_index is cleared in client's unregister function */
 		HIF_SDIO_WARN_FUNC("probed but not registered yet (%d)\n", ret);
-		g_hif_sdio_probed_func_list[probe_index].on_by_wmt = MTK_WCN_BOOL_TRUE;
 		return HIF_SDIO_ERR_CLT_NOT_REG;
 	}
 }

@@ -60,7 +60,7 @@ int (*vcorefs_get_curr_vcore_symbol)(void);
 int (*vcorefs_get_curr_ddr_symbol)(void);
 u32 (*spm_vcorefs_get_MD_status_symbol)(void);
 int (*vcorefs_get_num_opp_symbol)(void);
-int *kicker_table_symbol;
+int *(*kicker_table_symbol)(void);
 
 #endif /* MET_VCOREDVFS */
 

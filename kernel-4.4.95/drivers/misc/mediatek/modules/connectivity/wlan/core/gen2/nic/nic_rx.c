@@ -2391,7 +2391,6 @@ VOID nicRxSDIOAggReceiveRFBs(IN P_ADAPTER_T prAdapter)
 	UINT_32 u4RxAvailAggLen, u4CurrAvailFreeRfbCnt;
 	PUINT_8 pucSrcAddr;
 	P_HIF_RX_HEADER_T prHifRxHdr;
-	BOOLEAN fgResult = TRUE;
 	BOOLEAN fgIsRxEnhanceMode;
 	UINT_16 u2RxPktNum;
 #if CFG_SDIO_RX_ENHANCE
@@ -2529,7 +2528,7 @@ restart:
 			HAL_READ_RX_PORT(prAdapter,
 					 rxNum,
 					 u4RxAggLength, prRxCtrl->pucRxCoalescingBufPtr, CFG_RX_COALESCING_BUFFER_SIZE);
-			if (!fgResult) {
+			if (fgIsBusAccessFailed) {
 				DBGLOG(RX, ERROR, "Read RX Agg Packet Error\n");
 				continue;
 			}

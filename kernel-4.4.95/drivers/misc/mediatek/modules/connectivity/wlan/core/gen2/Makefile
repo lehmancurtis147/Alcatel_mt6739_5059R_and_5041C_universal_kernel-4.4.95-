@@ -7,8 +7,6 @@
 
 #ccflags-y += -imacros $(AUTOCONF_H)
 
-subdir-ccflags-y += -Wno-error
-
 ifeq ($(CONFIG_MTK_COMBO_CHIP),)
     $(error CONFIG_MTK_COMBO_CHIP not defined)
 endif
@@ -30,6 +28,7 @@ CONFIG_MTK_WIFI_ONLY=n
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
 # ---------------------------------------------------
 # Compile Options
 # ---------------------------------------------------
@@ -95,7 +94,6 @@ else
 endif
     ccflags-y += -DCFG_TC1_FEATURE=1
     ccflags-y += -DCFG_SUPPORT_CFG_FILE=1
-    ccflags-y += -DCFG_USE_AOSP_TETHERING_NAME
 else
     ccflags-y += -DCFG_TC1_FEATURE=0
 endif
@@ -103,7 +101,6 @@ endif
 ifeq ($(CONFIG_MTK_TC10_FEATURE), y)
     ccflags-y += -DCFG_TC10_FEATURE=1
     ccflags-y += -DCFG_SKIP_MAC_INFO_CHECK
-    ccflags-y += -DCFG_USE_AOSP_TETHERING_NAME
 else
     ccflags-y += -DCFG_TC10_FEATURE=0
 endif
@@ -166,11 +163,11 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/modules/connectivity/common/common_main/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/modules/connectivity/common/common_main/linux/include
 
-MODULE_NAME := wlan_drv
+MODULE_NAME := wlan_drv_gen2
 #obj-$(CONFIG_MTK_COMBO_WIFI) += $(MODULE_NAME).o
 
 #if CONFIG_MTK_COMBO_WIFI=m ==> obj-m means ko module, not build in obj-y
-obj-m += $(MODULE_NAME).o
+obj-m += $(MODULE_NAME).o 
 
 # ---------------------------------------------------
 # Directory List
@@ -306,11 +303,6 @@ $(MODULE_NAME)-objs  += $(PLAT_OBJS)
 endif
 
 ifeq ($(CONFIG_ARCH_MT6570), y)
-PLAT_OBJS := $(PLAT_DIR)plat_priv.o
-$(MODULE_NAME)-objs  += $(PLAT_OBJS)
-endif
-
-ifeq ($(CONFIG_ARCH_MT6580), y)
 PLAT_OBJS := $(PLAT_DIR)plat_priv.o
 $(MODULE_NAME)-objs  += $(PLAT_OBJS)
 endif

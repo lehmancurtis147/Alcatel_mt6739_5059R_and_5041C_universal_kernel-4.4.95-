@@ -3079,6 +3079,8 @@ VOID kalScanDone(IN P_GLUE_INFO_T prGlueInfo, IN ENUM_KAL_NETWORK_TYPE_INDEX_T e
 #if CFG_SUPPORT_ADD_CONN_AP
 	wlanCheckConnectedAP(prGlueInfo->prAdapter);
 #endif
+	scanLogEssResult(prGlueInfo->prAdapter);
+
 	scanReportBss2Cfg80211(prGlueInfo->prAdapter, BSS_TYPE_INFRASTRUCTURE, NULL);
 	cnmTimerStopTimer(prGlueInfo->prAdapter, &prAisFsmInfo->rScanDoneTimer);
 
@@ -4558,7 +4560,7 @@ inline INT_32 kalPerMonStop(IN P_GLUE_INFO_T prGlueInfo)
 		prPerMonitor->u1ShutdownCoreCount = 0;
 
 		/*Cancel CPU performance mode request*/
-		kalBoostCpu(0);
+		kalBoostCpu(prGlueInfo, 0);
 	}
 	DBGLOG(SW4, TRACE, "exit %s\n", __func__);
 	return 0;
@@ -4694,9 +4696,9 @@ VOID kalPerMonHandler(IN P_ADAPTER_T prAdapter, ULONG ulParam)
 		if (needBoostCpu && (prPerMonitor->u4TarPerfLevel != prPerMonitor->u4CurrPerfLevel)) {
 			/* if tar level = 0; core_number=prPerMonitor->u4TarPerfLevel+1*/
 			if (prPerMonitor->u4TarPerfLevel)
-				kalBoostCpu(prPerMonitor->u4TarPerfLevel);
+				kalBoostCpu(prGlueInfo, prPerMonitor->u4TarPerfLevel);
 			else
-				kalBoostCpu(0);
+				kalBoostCpu(prGlueInfo, 0);
 
 			prPerMonitor->u4CurrPerfLevel = prPerMonitor->u4TarPerfLevel;
 		}
@@ -4706,7 +4708,7 @@ VOID kalPerMonHandler(IN P_ADAPTER_T prAdapter, ULONG ulParam)
 	DBGLOG(SW4, TRACE, "exit kalPerMonHandler\n");
 }
 
-INT32 __weak kalBoostCpu(UINT_32 core_num)
+INT32 __weak kalBoostCpu(P_GLUE_INFO_T prGlueInfo, UINT_32 core_num)
 {
 	DBGLOG(SW4, WARN, "enter weak kalBoostCpu, core_num:%d\n", core_num);
 	return 0;

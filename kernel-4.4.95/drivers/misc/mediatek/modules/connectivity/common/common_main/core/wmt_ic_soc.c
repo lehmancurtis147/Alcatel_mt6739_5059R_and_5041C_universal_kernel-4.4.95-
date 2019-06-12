@@ -568,8 +568,9 @@ static UINT8 WMT_SET_MCU_CLK_EVT_6797[] = {
 
 #endif
 
+static UINT8 WMT_COEX_SPLIT_MODE_EVT[] = { 0x02, 0x10, 0x01, 0x00, 0x00 };
+
 #if CFG_WMT_FILTER_MODE_SETTING
-static UINT8 WMT_COEX_EXT_COMPONENT_CMD[] = {0x01, 0x10, 0x03, 0x00, 0x0d, 0x00, 0x00};
 static UINT8 WMT_COEX_FILTER_SPEC_CMD_TEST[] = {
 		0x01, 0x10, 0x45, 0x00, 0x11, 0x00, 0x00, 0x01,
 		0x00, 0x11, 0x11, 0x16, 0x00, 0x00, 0x00, 0x00,
@@ -643,7 +644,6 @@ static UINT8 WMT_COEX_LTE_FREQ_IDX_TABLE_CMD_0[] = {
 };
 static UINT8 WMT_COEX_TDM_REQ_ANTSEL_NUM_CMD[] = { 0x01, 0x10, 0x02, 0x00, 0x14, 0x00 };
 static UINT8 WMT_COEX_IS_LTE_PROJ_CMD[] = { 0x01, 0x10, 0x02, 0x00, 0x15, 0x01 };
-static UINT8 WMT_COEX_SPLIT_MODE_EVT[] = { 0x02, 0x10, 0x01, 0x00, 0x00 };
 
 static UINT8 WMT_COEX_FILTER_SPEC_CMD_6752[] = {
 		0x01, 0x10, 0x45, 0x00, 0x11, 0x00, 0x00, 0x01,
@@ -791,6 +791,12 @@ static struct init_script set_mcuclk_table_4[] = {
 
 #endif
 
+static UINT8 WMT_COEX_EXT_COMPONENT_CMD[] = {0x01, 0x10, 0x03, 0x00, 0x0d, 0x00, 0x00};
+
+static struct init_script set_wifi_ext_component_table[] = {
+	INIT_CMD(WMT_COEX_EXT_COMPONENT_CMD, WMT_COEX_SPLIT_MODE_EVT, "wifi ext component"),
+};
+
 #if CFG_WMT_FILTER_MODE_SETTING
 static struct init_script set_wifi_lte_coex_table_1[] = {
 	INIT_CMD(WMT_COEX_FILTER_SPEC_CMD_6752, WMT_COEX_SPLIT_MODE_EVT, "wifi lte coex filter spec"),
@@ -799,7 +805,6 @@ static struct init_script set_wifi_lte_coex_table_1[] = {
 };
 
 static struct init_script set_wifi_lte_coex_table_2[] = {
-	INIT_CMD(WMT_COEX_EXT_COMPONENT_CMD, WMT_COEX_SPLIT_MODE_EVT, "wifi lte ext component"),
 	INIT_CMD(WMT_COEX_FILTER_SPEC_CMD_TEST, WMT_COEX_SPLIT_MODE_EVT, "wifi lte coex filter"),
 	INIT_CMD(WMT_COEX_LTE_FREQ_IDX_TABLE_CMD, WMT_COEX_SPLIT_MODE_EVT, "wifi lte freq id table"),
 	INIT_CMD(WMT_COEX_LTE_CHAN_UNSAFE_CMD, WMT_COEX_SPLIT_MODE_EVT, "wifi lte unsafe channel"),
@@ -1065,12 +1070,6 @@ static INT32 mtk_wcn_soc_sw_init(P_WMT_HIF_CONF pWmtHifConf)
 		WMT_ERR_FUNC("wmt_power_on_dlm_table fail(%d)\n", iRet);
 	WMT_DBG_FUNC("wmt_power_on_dlm_table ok\n");
 #endif
-
-	/* turn on VCN28 for reading efuse */
-	ctrlPa1 = EFUSE_PALDO;
-	ctrlPa2 = PALDO_ON;
-	iRet = wmt_core_ctrl(WMT_CTRL_SOC_PALDO_CTRL, &ctrlPa1, &ctrlPa2);
-
 	/* 6. download patch */
 #if CFG_WMT_MULTI_PATCH
 	/* 6.1 Let launcher to search patch info */
@@ -1088,7 +1087,9 @@ static INT32 mtk_wcn_soc_sw_init(P_WMT_HIF_CONF pWmtHifConf)
 #if CFG_WMT_PATCH_DL_OPTM
 	if (wmt_ic_ops_soc.icId == 0x0279 ||
 		wmt_ic_ops_soc.icId == 0x0507 ||
-		wmt_ic_ops_soc.icId == 0x0668) {
+		wmt_ic_ops_soc.icId == 0x0713 ||
+		wmt_ic_ops_soc.icId == 0x0788 ||
+		wmt_ic_ops_soc.icId == 0x0688) {
 		iRet = wmt_core_init_script(set_mcuclk_table_3, osal_array_size(set_mcuclk_table_3));
 		if (iRet)
 			WMT_ERR_FUNC("set_mcuclk_table_3 fail(%d)\n", iRet);
@@ -1115,6 +1116,8 @@ static INT32 mtk_wcn_soc_sw_init(P_WMT_HIF_CONF pWmtHifConf)
 #if CFG_WMT_PATCH_DL_OPTM
 	if (wmt_ic_ops_soc.icId == 0x0279 ||
 		wmt_ic_ops_soc.icId == 0x0507 ||
+		wmt_ic_ops_soc.icId == 0x0713 ||
+		wmt_ic_ops_soc.icId == 0x0788 ||
 		wmt_ic_ops_soc.icId == 0x0688) {
 		iRet = wmt_core_init_script(set_mcuclk_table_4, osal_array_size(set_mcuclk_table_4));
 		if (iRet)
@@ -1161,6 +1164,23 @@ static INT32 mtk_wcn_soc_sw_init(P_WMT_HIF_CONF pWmtHifConf)
 	WMT_INFO_FUNC("Read efuse to set PMIC voltage:(%d)\n", efuse_d3_vcn33);
 	wmt_set_pmic_voltage(efuse_d3_vcn33);
 #endif
+	pWmtGenConf = wmt_get_gen_conf_pointer();
+	if (wmt_ic_ops_soc.icId == 0x0279 ||
+		wmt_ic_ops_soc.icId == 0x0507 ||
+		wmt_ic_ops_soc.icId == 0x0713 ||
+		wmt_ic_ops_soc.icId == 0x0788 ||
+		wmt_ic_ops_soc.icId == 0x0688) {
+		/* add WMT_COXE_CONFIG_EXT_COMPONENT_OPCODE command for 2G4 eLNA demand*/
+		if (pWmtGenConf->coex_wmt_ext_component) {
+			WMT_INFO_FUNC("coex_wmt_ext_component:0x%x\n", pWmtGenConf->coex_wmt_ext_component);
+			set_wifi_ext_component_table[0].cmd[5] = pWmtGenConf->coex_wmt_ext_component;
+		}
+		iRet = wmt_core_init_script(set_wifi_ext_component_table,
+				osal_array_size(set_wifi_ext_component_table));
+		if (iRet)
+			WMT_ERR_FUNC("wmt_core:set_wifi_ext_component_table %s(%d)\n",
+					iRet ? "fail" : "ok", iRet);
+	}
 
 #if CFG_WMT_FILTER_MODE_SETTING
 	if ((wmt_ic_ops_soc.icId == 0x6580) ||
@@ -1175,6 +1195,8 @@ static INT32 mtk_wcn_soc_sw_init(P_WMT_HIF_CONF pWmtHifConf)
 		(wmt_ic_ops_soc.icId == 0x0321) ||
 		(wmt_ic_ops_soc.icId == 0x0335) ||
 		(wmt_ic_ops_soc.icId == 0x0688) ||
+		(wmt_ic_ops_soc.icId == 0x0713) ||
+		(wmt_ic_ops_soc.icId == 0x0788) ||
 		(wmt_ic_ops_soc.icId == 0x0699) ||
 		(wmt_ic_ops_soc.icId == 0x0337) ||
 		(wmt_ic_ops_soc.icId == 0x0633)) {
@@ -1195,10 +1217,13 @@ static INT32 mtk_wcn_soc_sw_init(P_WMT_HIF_CONF pWmtHifConf)
 			WMT_ERR_FUNC("get_tdm_req_antsel_num_table fail(%d)\n", iRet);
 	}
 #endif
-	pWmtGenConf = wmt_get_gen_conf_pointer();
-	WMT_ERR_FUNC("bt_tssi_from_wifi=%d, bt_tssi_target=%d\n",
-		pWmtGenConf->bt_tssi_from_wifi, pWmtGenConf->bt_tssi_target);
-	if (pWmtGenConf->bt_tssi_from_wifi == 1) {
+	WMT_INFO_FUNC("bt_tssi_from_wifi=%d, bt_tssi_target=%d\n",
+		      pWmtGenConf->bt_tssi_from_wifi, pWmtGenConf->bt_tssi_target);
+	if (pWmtGenConf->bt_tssi_from_wifi) {
+		if (wmt_ic_ops_soc.icId == 0x0713 ||
+		    wmt_ic_ops_soc.icId == 0x0788)
+			WMT_BT_TSSI_FROM_WIFI_CONFIG_CMD[4] = 0x10;
+
 		WMT_BT_TSSI_FROM_WIFI_CONFIG_CMD[5] = pWmtGenConf->bt_tssi_from_wifi;
 		WMT_BT_TSSI_FROM_WIFI_CONFIG_CMD[6] = (pWmtGenConf->bt_tssi_target & 0x00FF) >> 0;
 		WMT_BT_TSSI_FROM_WIFI_CONFIG_CMD[7] = (pWmtGenConf->bt_tssi_target & 0xFF00) >> 8;
@@ -1227,11 +1252,6 @@ static INT32 mtk_wcn_soc_sw_init(P_WMT_HIF_CONF pWmtHifConf)
 	ctrlPa2 = PALDO_OFF;
 	iRet = wmt_core_ctrl(WMT_CTRL_SOC_PALDO_CTRL, &ctrlPa1, &ctrlPa2);
 	ctrlPa1 = WIFI_PALDO;
-	ctrlPa2 = PALDO_OFF;
-	iRet = wmt_core_ctrl(WMT_CTRL_SOC_PALDO_CTRL, &ctrlPa1, &ctrlPa2);
-
-	/* turn off VCN28 after reading efuse */
-	ctrlPa1 = EFUSE_PALDO;
 	ctrlPa2 = PALDO_OFF;
 	iRet = wmt_core_ctrl(WMT_CTRL_SOC_PALDO_CTRL, &ctrlPa1, &ctrlPa2);
 
@@ -1558,6 +1578,8 @@ static INT32 mtk_wcn_soc_gps_sync_ctrl(WMT_IC_PIN_STATE state, UINT32 flag)
 	 */
 	if (wmt_ic_ops_soc.icId != 0x0279 &&
 		wmt_ic_ops_soc.icId != 0x0507 &&
+		wmt_ic_ops_soc.icId != 0x0713 &&
+		wmt_ic_ops_soc.icId != 0x0788 &&
 		wmt_ic_ops_soc.icId != 0x0688) {
 		if (state == WMT_IC_PIN_MUX)
 			uVal = 0x1 << 28;
@@ -1799,6 +1821,8 @@ static INT32 wmt_stp_wifi_lte_coex(VOID)
 			WMT_DBG_FUNC("wmt_core:set_wifi_lte_coex_table_1 %s(%d)\n", iRet ? "fail" : "ok", iRet);
 		} else if (wmt_ic_ops_soc.icId == 0x0279 ||
 				wmt_ic_ops_soc.icId == 0x0507 ||
+				wmt_ic_ops_soc.icId == 0x0713 ||
+				wmt_ic_ops_soc.icId == 0x0788 ||
 				wmt_ic_ops_soc.icId == 0x0688) {
 			/* add WMT_COXE_CONFIG_EXT_COMPONENT_OPCODE command for 2G4 eLNA demand*/
 			if (pWmtGenConf->coex_wmt_ext_component) {
@@ -2251,6 +2275,8 @@ static INT32 mtk_wcn_soc_patch_dwn(UINT32 index)
 	}
 
 	if (wmt_ic_ops_soc.icId == 0x0507 ||
+		wmt_ic_ops_soc.icId == 0x0713 ||
+		wmt_ic_ops_soc.icId == 0x0788 ||
 		wmt_ic_ops_soc.icId == 0x0688) {
 		/* ROMv4 patch RAM base */
 		WMT_PATCH_ADDRESS_CMD[8] = 0x18;

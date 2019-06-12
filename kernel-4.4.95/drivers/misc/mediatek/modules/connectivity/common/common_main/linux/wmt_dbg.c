@@ -103,8 +103,6 @@ static INT32 wmt_dbg_func0_reg_write(INT32 par1, INT32 address, INT32 value);
 static INT32 wmt_dbg_stp_sdio_reg_read(INT32 par1, INT32 address, INT32 value);
 static INT32 wmt_dbg_stp_sdio_reg_write(INT32 par1, INT32 address, INT32 value);
 
-static INT32 wmt_dbg_thermal_query(INT32 par1, INT32 count, INT32 interval);
-
 static const WMT_DEV_DBG_FUNC wmt_dev_dbg_func[] = {
 	[0x0] = wmt_dbg_psm_ctrl,
 	[0x1] = wmt_dbg_quick_sleep_ctrl,
@@ -150,7 +148,6 @@ static const WMT_DEV_DBG_FUNC wmt_dev_dbg_func[] = {
 	[0x23] = wmt_dbg_func0_reg_write,
 	[0x24] = wmt_dbg_stp_sdio_reg_read,
 	[0x25] = wmt_dbg_stp_sdio_reg_write,
-	[0x26] = wmt_dbg_thermal_query,
 };
 
 static VOID wmt_dbg_fwinfor_print_buff(UINT32 len)
@@ -737,28 +734,6 @@ INT32 wmt_dbg_stp_sdio_reg_write(INT32 par1, INT32 address, INT32 value)
 	return ret;
 }
 
-INT32 wmt_dbg_thermal_query(INT32 par1, INT32 count, INT32 interval)
-{
-	LONG tm;
-
-	if (count < 0)
-		count = 0;
-	if (interval < 0)
-		interval = 0;
-
-	WMT_INFO_FUNC("Performing thermal query for %d times with %dms interval\n", count, interval);
-	while (count--) {
-		mtk_wcn_wmt_therm_ctrl(WMTTHERM_ENABLE);
-		tm = mtk_wcn_wmt_therm_ctrl(WMTTHERM_READ);
-		mtk_wcn_wmt_therm_ctrl(WMTTHERM_DISABLE);
-
-		WMT_INFO_FUNC("Temperature: %ld\n", tm);
-		if (count > 0)
-			osal_sleep_ms(interval);
-	}
-	return 0;
-}
-
 INT32 wmt_dbg_ut_test(INT32 par1, INT32 par2, INT32 par3)
 {
 	INT32 i = 0;
@@ -1207,9 +1182,9 @@ err_exit:
 
 ssize_t wmt_dbg_write(struct file *filp, const char __user *buffer, size_t count, loff_t *f_pos)
 {
-	ULONG len = count;
 	INT8 buf[256];
 	PINT8 pBuf;
+	ULONG len = count;
 	INT32 x = 0, y = 0, z = 0;
 	PINT8 pToken = NULL;
 	PINT8 pDelimiter = " \t";
@@ -1259,12 +1234,6 @@ ssize_t wmt_dbg_write(struct file *filp, const char __user *buffer, size_t count
 		if (0x11 == x || 0x12 == x || 0x13 == x)
 			z = 0xffffffff;
 	}
-
-#if (!WMT_DBG_SUPPORT)
-	/* only allow command 0x15 for setting coredump mode in userload */
-	if (0x15 != x)
-		return len;
-#endif
 
 	WMT_INFO_FUNC("x(0x%08x), y(0x%08x), z(0x%08x)\n\r", x, y, z);
 

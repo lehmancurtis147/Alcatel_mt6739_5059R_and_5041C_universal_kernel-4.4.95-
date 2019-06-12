@@ -78,6 +78,8 @@ int do_wlan_drv_init(int chip_id)
 	case 0x6797:
 	case 0x6758:
 	case 0x6759:
+	case 0x6775:
+	case 0x6771:
 #ifdef MTK_WCN_WLAN_GEN3
 		/* WLAN driver init */
 		ret = mtk_wcn_wlan_gen3_init();

@@ -115,11 +115,10 @@ static MTK_WCN_BOOL wmt_lib_put_op(P_OSAL_OP_Q pOpQ, P_OSAL_OP pLxOp);
 static P_OSAL_OP wmt_lib_get_op(P_OSAL_OP_Q pOpQ);
 
 static INT32 wmtd_thread(PVOID pvData);
-static INT32 wmtd_worker_thread(PVOID pvData);
 
 static INT32 wmt_lib_pin_ctrl(WMT_IC_PIN_ID id, WMT_IC_PIN_STATE stat, UINT32 flag);
 static MTK_WCN_BOOL wmt_lib_hw_state_show(VOID);
-static VOID wmt_lib_worker_timeout_handler(ULONG data);
+
 
 /*******************************************************************************
 *                              F U N C T I O N S
@@ -130,16 +129,6 @@ INT32 __weak mtk_wcn_consys_stp_btif_dpidle_ctrl(ENUM_BTIF_DPIDLE_CTRL en_flag)
 	WMT_ERR_FUNC("mtk_wcn_consys_stp_btif_dpidle_ctrl is not define!!!\n");
 
 	return 0;
-}
-
-INT32 wmt_lib_wlan_lock_aquire(VOID)
-{
-	return osal_lock_sleepable_lock(&gDevWmt.wlan_lock);
-}
-
-VOID wmt_lib_wlan_lock_release(VOID)
-{
-	osal_unlock_sleepable_lock(&gDevWmt.wlan_lock);
 }
 
 INT32 wmt_lib_idc_lock_aquire(VOID)
@@ -205,7 +194,6 @@ INT32 wmt_lib_init(VOID)
 	UINT32 i;
 	P_DEV_WMT pDevWmt;
 	P_OSAL_THREAD pThread;
-	P_OSAL_THREAD pWorkerThread;
 	ENUM_WMT_CHIP_TYPE chip_type;
 
 	/* create->init->start */
@@ -231,22 +219,6 @@ INT32 wmt_lib_init(VOID)
 		return -2;
 	}
 
-	/* create worker timer */
-	gDevWmt.worker_timer.timeoutHandler = wmt_lib_worker_timeout_handler;
-	gDevWmt.worker_timer.timeroutHandlerData = 0;
-	osal_timer_create(&gDevWmt.worker_timer);
-	pWorkerThread = &gDevWmt.worker_thread;
-
-	/* Create wmtd_worker thread */
-	osal_strncpy(pWorkerThread->threadName, "mtk_wmtd_worker", sizeof(pWorkerThread->threadName));
-	pWorkerThread->pThreadData = (PVOID) pDevWmt;
-	pWorkerThread->pThreadFunc = (PVOID) wmtd_worker_thread;
-	iRet = osal_thread_create(pWorkerThread);
-	if (iRet) {
-		WMT_ERR_FUNC("osal_thread_create(0x%p) fail(%d)\n", pWorkerThread, iRet);
-		return -2;
-	}
-
 	/* 2. initialize */
 	/* Initialize wmt_core */
 
@@ -258,19 +230,15 @@ INT32 wmt_lib_init(VOID)
 
 	/* Initialize WMTd Thread Information: Thread */
 	osal_event_init(&pDevWmt->rWmtdWq);
-	osal_event_init(&pDevWmt->rWmtdWorkerWq);
 	osal_sleepable_lock_init(&pDevWmt->psm_lock);
 	osal_sleepable_lock_init(&pDevWmt->idc_lock);
-	osal_sleepable_lock_init(&pDevWmt->wlan_lock);
 	osal_sleepable_lock_init(&pDevWmt->rActiveOpQ.sLock);
-	osal_sleepable_lock_init(&pDevWmt->rWorkerOpQ.sLock);
 	osal_sleepable_lock_init(&pDevWmt->rFreeOpQ.sLock);
 	pDevWmt->state.data = 0;
 
 	/* Initialize op queue */
 	RB_INIT(&pDevWmt->rFreeOpQ, WMT_OP_BUF_SIZE);
 	RB_INIT(&pDevWmt->rActiveOpQ, WMT_OP_BUF_SIZE);
-	RB_INIT(&pDevWmt->rWorkerOpQ, WMT_OP_BUF_SIZE);
 	/* Put all to free Q */
 	for (i = 0; i < WMT_OP_BUF_SIZE; i++) {
 		osal_signal_init(&(pDevWmt->arQue[i].signal));
@@ -333,13 +301,7 @@ INT32 wmt_lib_init(VOID)
 	/* 3. start: start running mtk_wmtd */
 	iRet = osal_thread_run(pThread);
 	if (iRet) {
-		WMT_ERR_FUNC("osal_thread_run(wmtd 0x%p) fail(%d)\n", pThread, iRet);
-		return -5;
-	}
-
-	iRet = osal_thread_run(pWorkerThread);
-	if (iRet) {
-		WMT_ERR_FUNC("osal_thread_run(worker 0x%p) fail(%d)\n", pWorkerThread, iRet);
+		WMT_ERR_FUNC("osal_thread_run(0x%p) fail(%d)\n", pThread, iRet);
 		return -5;
 	}
 	/*4. register irq callback to WMT-PLAT */
@@ -414,12 +376,9 @@ INT32 wmt_lib_deinit(VOID)
 
 	osal_sleepable_lock_deinit(&pDevWmt->rFreeOpQ.sLock);
 	osal_sleepable_lock_deinit(&pDevWmt->rActiveOpQ.sLock);
-	osal_sleepable_lock_deinit(&pDevWmt->rWorkerOpQ.sLock);
 	osal_sleepable_lock_deinit(&pDevWmt->idc_lock);
-	osal_sleepable_lock_deinit(&pDevWmt->wlan_lock);
 	osal_sleepable_lock_deinit(&pDevWmt->psm_lock);
 	osal_event_deinit(&pDevWmt->rWmtdWq);
-	osal_event_deinit(&pDevWmt->rWmtdWorkerWq);
 
 	iRet = wmt_core_deinit();
 	if (iRet) {
@@ -513,6 +472,8 @@ INT32 wmt_lib_set_hif(ULONG hifconf)
 		break;
 	default:
 		WMT_WARN_FUNC("invalid stp mode: %lu %u\n", hifconf, val);
+		mtk_wcn_stp_set_if_tx_type(STP_MAX_IF_TX);
+		wmt_plat_set_comm_if_type(STP_MAX_IF_TX);
 		return -1;
 	}
 
@@ -760,11 +721,12 @@ static MTK_WCN_BOOL wmt_lib_ps_do_host_awake(VOID)
 static INT32 wmt_lib_ps_handler(MTKSTP_PSM_ACTION_T action)
 {
 	INT32 ret;
+	MTK_WCN_BOOL bRet = MTK_WCN_BOOL_FALSE;
 
 	ret = 0;		/* TODO:[FixMe][George] initial value or compile warning? */
 	/* if(g_block_tx && (action == SLEEP)) */
 	if ((mtk_wcn_stp_coredump_start_get() != 0) && (action == SLEEP)) {
-		mtk_wcn_stp_psm_notify_stp(SLEEP);
+		ret = mtk_wcn_stp_psm_notify_stp(SLEEP);
 		return ret;
 	}
 
@@ -772,18 +734,19 @@ static INT32 wmt_lib_ps_handler(MTKSTP_PSM_ACTION_T action)
 	if (!mtk_wcn_stp_is_ready()) {
 		if (!mtk_wcn_stp_is_sdio_mode()) {
 			WMT_DBG_FUNC("MT662x Not Ready, Dont Send Sleep/Wakeup Command\n");
-			mtk_wcn_stp_psm_notify_stp(ROLL_BACK);
+			ret = mtk_wcn_stp_psm_notify_stp(ROLL_BACK);
 		} else {
 			WMT_DBG_FUNC("MT662x Not Ready, SDIO mode, skip EIRQ");
 		}
-		return 0;
+		return ret;
 	}
 
 	if (action == SLEEP) {
 		WMT_DBG_FUNC("send op--------------------------------> sleep job\n");
 
 		if (!mtk_wcn_stp_is_sdio_mode()) {
-			ret = wmt_lib_ps_do_sleep();
+			bRet = wmt_lib_ps_do_sleep();
+			ret = bRet ? 0 : -1;
 			WMT_DBG_FUNC("enable host eirq\n");
 			wmt_plat_eirq_ctrl(PIN_BGF_EINT, PIN_STA_EINT_EN);
 #if CFG_WMT_DUMP_INT_STATUS
@@ -824,7 +787,8 @@ static INT32 wmt_lib_ps_handler(MTKSTP_PSM_ACTION_T action)
 				wmt_plat_BGF_irq_dump_status();
 #endif
 			wmt_plat_eirq_ctrl(PIN_BGF_EINT, PIN_STA_EINT_DIS);
-			ret = wmt_lib_ps_do_wakeup();
+			bRet = wmt_lib_ps_do_wakeup();
+			ret = bRet ? 0 : -1;
 		} else {
 			/* ret = mtk_wcn_stp_sdio_do_own_clr(); */
 
@@ -856,7 +820,8 @@ static INT32 wmt_lib_ps_handler(MTKSTP_PSM_ACTION_T action)
 			if (wmt_plat_dump_BGF_irq_status() == MTK_WCN_BOOL_TRUE)
 				wmt_plat_BGF_irq_dump_status();
 #endif
-			ret = wmt_lib_ps_do_host_awake();
+			bRet = wmt_lib_ps_do_host_awake();
+			ret = bRet ? 0 : -1;
 		} else {
 			WMT_DBG_FUNC("[SDIO-PS] SDIO host awake! ####\n");
 
@@ -961,25 +926,12 @@ UINT32 wmt_lib_wait_event_checker(P_OSAL_THREAD pThread)
 	return 0;
 }
 
-UINT32 wmt_lib_worker_wait_event_checker(P_OSAL_THREAD pThread)
-{
-	P_DEV_WMT pDevWmt;
-
-	if (pThread) {
-		pDevWmt = (P_DEV_WMT) (pThread->pThreadData);
-		return !RB_EMPTY(&pDevWmt->rWorkerOpQ);
-	}
-	WMT_ERR_FUNC("pThread(NULL)\n");
-	return 0;
-}
-
 static INT32 wmtd_thread(void *pvData)
 {
 	P_DEV_WMT pWmtDev = (P_DEV_WMT) pvData;
 	P_OSAL_EVENT pEvent = NULL;
 	P_OSAL_OP pOp;
 	INT32 iResult;
-	static DEFINE_RATELIMIT_STATE(_rs, HZ, 10);
 
 	if (pWmtDev == NULL) {
 		WMT_ERR_FUNC("pWmtDev(NULL)\n");
@@ -1007,15 +959,6 @@ static INT32 wmtd_thread(void *pvData)
 			WMT_WARN_FUNC("get_lxop activeQ fail\n");
 			continue;
 		}
-		if (__ratelimit(&_rs))
-			WMT_INFO_FUNC("pOp(%p):%u(%d)-%x-%zx,%zx,%zx,%zx\n", pOp, pOp->op.opId,
-					atomic_read(&pOp->ref_count),
-					pOp->op.u4InfoBit,
-					pOp->op.au4OpData[0],
-					pOp->op.au4OpData[1],
-					pOp->op.au4OpData[2],
-					pOp->op.au4OpData[3]);
-
 #if 0				/* wmt_core_opid_handler will do sanity check on opId, so no usage here */
 		id = lxop_get_opid(pLxOp);
 		if (id >= WMT_OPID_MAX) {
@@ -1046,14 +989,11 @@ static INT32 wmtd_thread(void *pvData)
 		if (iResult)
 			WMT_WARN_FUNC("opid (0x%x) failed, iRet(%d)\n", pOp->op.opId, iResult);
 
-		if (iResult == 0 &&
-			(pOp->op.opId == WMT_OPID_WLAN_PROBE || pOp->op.opId == WMT_OPID_WLAN_REMOVE))
-			continue;
-
-		if (atomic_dec_and_test(&pOp->ref_count)) {
-			wmt_lib_put_op(&pWmtDev->rFreeOpQ, pOp);
-		} else if (osal_op_is_wait_for_signal(pOp)) {
+		if (osal_op_is_wait_for_signal(pOp)) {
 			osal_op_raise_signal(pOp, iResult);
+		} else {
+			/* put Op back to freeQ */
+			wmt_lib_put_op(&pWmtDev->rFreeOpQ, pOp);
 		}
 
 		if (pOp->op.opId == WMT_OPID_EXIT) {
@@ -1067,74 +1007,6 @@ static INT32 wmtd_thread(void *pvData)
 	return 0;
 };
 
-static VOID wmt_lib_worker_timeout_handler(ULONG data)
-{
-	PUINT8 pbuf = NULL;
-	INT32 len = 0;
-	P_OSAL_OP pOp;
-
-	pOp = wmt_lib_get_worker_op(&gDevWmt);
-	if (pOp) {
-		switch (pOp->op.opId) {
-		case WMT_OPID_WLAN_PROBE:
-			pbuf = "turn on wifi fail, just collect SYS_FTRACE to DB";
-			len = osal_strlen(pbuf);
-		break;
-		case WMT_OPID_WLAN_REMOVE:
-			pbuf = "turn off wifi fail, just collect SYS_FTRACE to DB";
-			len = osal_strlen(pbuf);
-		break;
-		default:
-			pbuf = "unknown op fail, just collect SYS_FTRACE to DB";
-			len = osal_strlen(pbuf);
-		break;
-		}
-		stp_dbg_trigger_collect_ftrace(pbuf, len);
-	}
-}
-
-static INT32 wmtd_worker_thread(void *pvData)
-{
-	P_DEV_WMT pWmtDev = (P_DEV_WMT) pvData;
-	P_OSAL_EVENT pEvent = NULL;
-	P_OSAL_OP pOp;
-	INT32 iResult = 0;
-
-	pEvent = &(pWmtDev->rWmtdWorkerWq);
-
-	for (;;) {
-		osal_thread_wait_for_event(&pWmtDev->worker_thread, pEvent, wmt_lib_worker_wait_event_checker);
-
-		/* get Op from activeWorkerQ */
-		pOp = wmt_lib_get_op(&pWmtDev->rWorkerOpQ);
-		if (!pOp) {
-			WMT_WARN_FUNC("get activeWorkerQ fail\n");
-			continue;
-		}
-		WMT_INFO_FUNC("pOp(%p):%u(%d)\n", pOp, pOp->op.opId, atomic_read(&pOp->ref_count));
-
-		if (osal_test_bit(WMT_STAT_RST_ON, &pWmtDev->state)) {
-			iResult = -2;
-			WMT_WARN_FUNC("Whole chip resetting, opid (0x%x) failed, iRet(%d)\n", pOp->op.opId, iResult);
-		} else {
-			wmt_lib_set_worker_op(pWmtDev, pOp);
-			osal_timer_start(&gDevWmt.worker_timer, MAX_FUNC_ON_TIME);
-			iResult = wmt_core_opid(&pOp->op);
-			osal_timer_stop(&gDevWmt.worker_timer);
-			wmt_lib_set_worker_op(pWmtDev, NULL);
-		}
-
-		if (iResult)
-			WMT_WARN_FUNC("opid (0x%x) failed, iRet(%d)\n", pOp->op.opId, iResult);
-
-		if (atomic_dec_and_test(&pOp->ref_count))
-			wmt_lib_put_op(&pWmtDev->rFreeOpQ, pOp);
-		else if (osal_op_is_wait_for_signal(pOp))
-			osal_op_raise_signal(pOp, iResult);
-	}
-
-	return 0;
-}
 
 static MTK_WCN_BOOL wmt_lib_put_op(P_OSAL_OP_Q pOpQ, P_OSAL_OP pOp)
 {
@@ -1153,27 +1025,16 @@ static MTK_WCN_BOOL wmt_lib_put_op(P_OSAL_OP_Q pOpQ, P_OSAL_OP pOp)
 		return MTK_WCN_BOOL_FALSE;
 	}
 
-#if defined(CONFIG_MTK_ENG_BUILD) || defined(CONFIG_MT_ENG_BUILD)
-	if (osal_opq_has_op(pOpQ, pOp)) {
-		WMT_ERR_FUNC("Op(%p) already exists in queue(%p)\n", pOp, pOpQ);
-		iRet = -2;
-	}
-#endif
-
 	/* acquire lock success */
 	if (!RB_FULL(pOpQ))
 		RB_PUT(pOpQ, pOp);
-	else {
-		WMT_WARN_FUNC("RB_FULL(%p -> %p)\n", pOp, pOpQ);
+	else
 		iRet = -1;
-	}
 
 	osal_unlock_sleepable_lock(&pOpQ->sLock);
 
 	if (iRet) {
-		osal_opq_dump("FreeOpQ", &gDevWmt.rFreeOpQ);
-		osal_opq_dump("ActiveOpQ", &gDevWmt.rActiveOpQ);
-		osal_opq_dump("WorkerOpQ", &gDevWmt.rWorkerOpQ);
+		WMT_WARN_FUNC("RB_FULL(0x%p)\n", pOpQ);
 		return MTK_WCN_BOOL_FALSE;
 	}
 	return MTK_WCN_BOOL_TRUE;
@@ -1203,10 +1064,7 @@ static P_OSAL_OP wmt_lib_get_op(P_OSAL_OP_Q pOpQ)
 	osal_unlock_sleepable_lock(&pOpQ->sLock);
 
 	if (pOp == NULL) {
-		WMT_WARN_FUNC("RB_GET(%p) return NULL\n", pOpQ);
-		osal_opq_dump("FreeOpQ", &gDevWmt.rFreeOpQ);
-		osal_opq_dump("ActiveOpQ", &gDevWmt.rActiveOpQ);
-		osal_opq_dump("WorkerOpQ", &gDevWmt.rWorkerOpQ);
+		WMT_WARN_FUNC("RB_GET return NULL\n");
 		osal_assert(pOp);
 	}
 
@@ -1233,7 +1091,13 @@ P_OSAL_OP wmt_lib_get_free_op(VOID)
 	osal_assert(pDevWmt);
 	pOp = wmt_lib_get_op(&pDevWmt->rFreeOpQ);
 	if (pOp) {
-		osal_memset(pOp, 0, osal_sizeof(OSAL_OP));
+		osal_memset(&pOp->op, 0, osal_sizeof(pOp->op));
+
+		/* at the moment the signal's timeoutValue is initialized by caller of wmt_lib_get_free_op(),
+		 * and the signal's comp is initialized in wmt_lib_put_act_op(),
+		 * leaving us with no choice but to initialize timeoutExtension here.
+		 */
+		pOp->signal.timeoutExtension = 0;
 	}
 	return pOp;
 }
@@ -1242,6 +1106,7 @@ MTK_WCN_BOOL wmt_lib_put_act_op(P_OSAL_OP pOp)
 {
 	P_DEV_WMT pWmtDev = &gDevWmt;
 	MTK_WCN_BOOL bRet = MTK_WCN_BOOL_FALSE;
+	MTK_WCN_BOOL bCleanup = MTK_WCN_BOOL_FALSE;
 	P_OSAL_SIGNAL pSignal = NULL;
 	INT32 waitRet = -1;
 
@@ -1253,13 +1118,10 @@ MTK_WCN_BOOL wmt_lib_put_act_op(P_OSAL_OP pOp)
 			WMT_ERR_FUNC("pWmtDev(0x%p), pOp(0x%p)\n", pWmtDev, pOp);
 			break;
 		}
-
-		/* Init ref_count to 1 indicating that current thread holds a ref to it */
-		atomic_set(&pOp->ref_count, 1);
-
 		if ((mtk_wcn_stp_coredump_start_get() != 0) &&
 		    (pOp->op.opId != WMT_OPID_HW_RST) &&
 		    (pOp->op.opId != WMT_OPID_SW_RST) && (pOp->op.opId != WMT_OPID_GPIO_STATE)) {
+			bCleanup = MTK_WCN_BOOL_TRUE;
 			WMT_WARN_FUNC("block tx flag is set\n");
 			break;
 		}
@@ -1270,18 +1132,11 @@ MTK_WCN_BOOL wmt_lib_put_act_op(P_OSAL_OP pOp)
 			osal_signal_init(pSignal);
 		}
 
-		/* Increment ref_count by 1 as wmtd thread will hold a reference also,
-		 * this must be done here instead of on target thread, because
-		 * target thread might not be scheduled until a much later time,
-		 * allowing current thread to decrement ref_count at the end of function,
-		 * putting op back to free queue before target thread has a chance to process.
-		 */
-		atomic_inc(&pOp->ref_count);
-
 		/* put to active Q */
 		bRet = wmt_lib_put_op(&pWmtDev->rActiveOpQ, pOp);
 		if (bRet == MTK_WCN_BOOL_FALSE) {
 			WMT_WARN_FUNC("put to active queue fail\n");
+			bCleanup = MTK_WCN_BOOL_TRUE;
 			break;
 		}
 
@@ -1294,16 +1149,13 @@ MTK_WCN_BOOL wmt_lib_put_act_op(P_OSAL_OP pOp)
 			/* clean it in wmtd */
 			break;
 		}
+		/* wait result, clean it here */
+		bCleanup = MTK_WCN_BOOL_TRUE;
 
 		/* check result */
 		/* wait_ret = wait_for_completion_interruptible_timeout(&pOp->comp, msecs_to_jiffies(u4WaitMs)); */
 		/* wait_ret = wait_for_completion_timeout(&pOp->comp, msecs_to_jiffies(u4WaitMs)); */
-		if (wmt_detect_get_chip_type() == WMT_CHIP_TYPE_SOC &&
-			pOp->op.opId == WMT_OPID_FUNC_ON &&
-			pOp->op.au4OpData[0] == WMTDRV_TYPE_WIFI)
-			waitRet = osal_wait_for_signal_timeout(pSignal, &pWmtDev->worker_thread);
-		else
-			waitRet = osal_wait_for_signal_timeout(pSignal, &pWmtDev->thread);
+		waitRet = osal_wait_for_signal_timeout(pSignal, &pWmtDev->thread);
 		WMT_DBG_FUNC("osal_wait_for_signal_timeout:%d\n", waitRet);
 
 		/* if (unlikely(!wait_ret)) { */
@@ -1316,38 +1168,10 @@ MTK_WCN_BOOL wmt_lib_put_act_op(P_OSAL_OP pOp)
 		bRet = (pOp->result) ? MTK_WCN_BOOL_FALSE : MTK_WCN_BOOL_TRUE;
 	} while (0);
 
-	if (pOp && atomic_dec_and_test(&pOp->ref_count)) {
+	if (bCleanup) {
 		/* put Op back to freeQ */
 		wmt_lib_put_op(&pWmtDev->rFreeOpQ, pOp);
 	}
-
-	return bRet;
-}
-
-MTK_WCN_BOOL wmt_lib_put_worker_op(P_OSAL_OP pOp)
-{
-	P_DEV_WMT pWmtDev = &gDevWmt;
-	MTK_WCN_BOOL bRet = MTK_WCN_BOOL_FALSE;
-
-	osal_assert(pWmtDev);
-	osal_assert(pOp);
-
-	do {
-		if (!pWmtDev || !pOp) {
-			WMT_ERR_FUNC("pWmtDev(0x%p), pOp(0x%p)\n", pWmtDev, pOp);
-			break;
-		}
-
-		/* put to activeWorker Q */
-		bRet = wmt_lib_put_op(&pWmtDev->rWorkerOpQ, pOp);
-		if (bRet == MTK_WCN_BOOL_FALSE) {
-			WMT_WARN_FUNC("put to ActiveWorker queue fail\n");
-			break;
-		}
-
-		/* wake up wmtd_worker */
-		osal_trigger_event(&pWmtDev->rWmtdWorkerWq);
-	} while (0);
 
 	return bRet;
 }
@@ -1656,38 +1480,6 @@ INT32 wmt_lib_efuse_rw(UINT32 isWrite, UINT32 offset, PUINT32 pvalue, UINT32 mas
 
 
 
-INT32 wmt_lib_try_pwr_off(VOID)
-{
-	P_OSAL_OP pOp;
-	MTK_WCN_BOOL bRet;
-	P_OSAL_SIGNAL pSignal;
-
-	pOp = wmt_lib_get_free_op();
-	if (!pOp) {
-		WMT_WARN_FUNC("get_free_lxop fail\n");
-		return -1;
-	}
-
-	pSignal = &pOp->signal;
-	pSignal->timeoutValue = MAX_FUNC_OFF_TIME;
-	pOp->op.opId = WMT_OPID_TRY_PWR_OFF;
-	if (DISABLE_PSM_MONITOR()) {
-		WMT_ERR_FUNC("wake up failed\n");
-		wmt_lib_put_op_to_free_queue(pOp);
-		return -2;
-	}
-
-	bRet = wmt_lib_put_act_op(pOp);
-	ENABLE_PSM_MONITOR();
-	if (bRet == MTK_WCN_BOOL_FALSE) {
-		WMT_WARN_FUNC("WMT_OPID_TRY_PWR_OFF fail(%d)\n", bRet);
-		return -2;
-	}
-	WMT_DBG_FUNC("wmt_lib_try_pwr_off OPID(%d) ok\n", pOp->op.opId);
-
-	return 0;
-}
-
 /*!
  * \brief update combo chip AUDIO Interface (AIF) settings
  *
@@ -1789,10 +1581,10 @@ VOID wmt_lib_state_init(VOID)
 	while (!RB_EMPTY(&pDevWmt->rActiveOpQ)) {
 		pOp = wmt_lib_get_op(&pDevWmt->rActiveOpQ);
 		if (pOp) {
-			if (atomic_dec_and_test(&pOp->ref_count))
-				wmt_lib_put_op(&pDevWmt->rFreeOpQ, pOp);
-			else if (osal_op_is_wait_for_signal(pOp))
+			if (osal_op_is_wait_for_signal(pOp))
 				osal_op_raise_signal(pOp, -1);
+			else
+				wmt_lib_put_op(&pDevWmt->rFreeOpQ, pOp);
 		}
 	}
 }
@@ -2162,24 +1954,6 @@ P_OSAL_OP wmt_lib_get_current_op(P_DEV_WMT pWmtDev)
 	return NULL;
 }
 
-INT32 wmt_lib_set_worker_op(P_DEV_WMT pWmtDev, P_OSAL_OP pOp)
-{
-	if (pWmtDev) {
-		pWmtDev->pWorkerOP = pOp;
-		WMT_DBG_FUNC("pOp=0x%p\n", pOp);
-		return 0;
-	}
-	WMT_ERR_FUNC("Invalid pointer\n");
-	return -1;
-}
-
-P_OSAL_OP wmt_lib_get_worker_op(P_DEV_WMT pWmtDev)
-{
-	if (pWmtDev)
-		return pWmtDev->pWorkerOP;
-	WMT_ERR_FUNC("Invalid pointer\n");
-	return NULL;
-}
 
 UINT8 *wmt_lib_get_fwinfor_from_emi(UINT8 section, UINT32 offset, UINT8 *buf, UINT32 len)
 {

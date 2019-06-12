@@ -586,9 +586,6 @@ int mtk_p2p_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *dev, struc
 
 		prGlueInfo = *((P_GLUE_INFO_T *) wiphy_priv(wiphy));
 
-		/* switch netif on */
-		netif_carrier_on(dev);
-
 		mtk_p2p_cfg80211_set_channel(wiphy, &settings->chandef);
 
 		prP2pBcnUpdateMsg = (P_MSG_P2P_BEACON_UPDATE_T) cnmMemAlloc(prGlueInfo->prAdapter,
@@ -2090,7 +2087,10 @@ int mtk_p2p_cfg80211_testmode_get_best_channel(IN struct wiphy *wiphy, IN void *
 		kalMemFree(prQueryLteChn, VIR_MEM_TYPE, sizeof(PARAM_GET_CHN_INFO));
 	}
 
-#if CFG_TC10_FEATURE
+#if CFG_TC1_FEATURE
+	/* Restrict 2.4G band channel selection range to 1/6/11 per customer's request */
+	u4LteSafeChnBitMask_2G &= 0x0842;
+#elif CFG_TC10_FEATURE
 	/* Restrict 2.4G band channel selection range to 1~11 per customer's request */
 	u4LteSafeChnBitMask_2G &= 0x0FFE;
 #endif

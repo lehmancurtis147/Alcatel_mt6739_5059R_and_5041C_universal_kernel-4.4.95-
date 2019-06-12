@@ -1554,9 +1554,11 @@ INT32 mtk_wcn_stp_init(const mtkstp_callback * const cb_func)
 		goto ERROR;
 	}
 	STP_SET_ENABLE_RST(stp_core_ctx, 1);
-
+#ifdef CONFIG_LOG_STP_INTERNAL
 	mtk_wcn_stp_dbg_enable();
-
+#else
+	mtk_wcn_stp_dbg_enable();
+#endif
 	goto RETURN;
 
 ERROR:
@@ -1667,10 +1669,10 @@ INT32 mtk_wcn_stp_psm_enable(INT32 idle_time_to_sleep)
 *****************************************************************************/
 INT32 mtk_wcn_stp_psm_disable(VOID)
 {
-	if (mtk_wcn_stp_is_ready() && mtk_wcn_stp_is_enable() && (mtk_wcn_stp_is_uart_fullset_mode()
+	if (mtk_wcn_stp_is_ready() && (mtk_wcn_stp_is_uart_fullset_mode()
 		|| mtk_wcn_stp_is_sdio_mode() || mtk_wcn_stp_is_btif_fullset_mode()))
 		return stp_psm_disable(STP_PSM_CORE(stp_core_ctx));
-	STP_WARN_FUNC("STP Not Ready/Enable, Dont do Sleep/Wakeup\n");
+	STP_WARN_FUNC("STP Not Ready, Dont do Sleep/Wakeup\n");
 	return 0;
 }
 

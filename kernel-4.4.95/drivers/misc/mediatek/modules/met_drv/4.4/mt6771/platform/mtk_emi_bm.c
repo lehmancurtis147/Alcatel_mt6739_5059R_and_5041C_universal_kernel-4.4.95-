@@ -95,6 +95,18 @@ void MET_BM_RestoreCfg(void)
 		emi_reg_sync_writel(emi_config_val[i], ADDR_EMI + emi_config[i]);
 }
 
+void MET_BM_SetReadWriteType(const unsigned int ReadWriteType)
+{
+	const unsigned int value = emi_readl(IOMEM(ADDR_EMI + EMI_BMEN));
+
+	/*
+	 * ReadWriteType: 00/11 --> both R/W
+	 *                   01 --> only R
+	 *                   10 --> only W
+	 */
+	emi_reg_sync_writel((value & 0xFFFFFFCF) | (ReadWriteType << 4), ADDR_EMI + EMI_BMEN);
+}
+
 int MET_BM_SetMonitorCounter(const unsigned int counter_num,
 			     const unsigned int master, const unsigned int trans_type)
 {
@@ -112,10 +124,10 @@ int MET_BM_SetMonitorCounter(const unsigned int counter_num,
 	} else {
 		addr = (counter_num <= 3) ? EMI_MSEL : (EMI_MSEL2 + (counter_num / 2 - 2) * 8);
 
-
+		/* clear master and transaction type fields */
 		value = emi_readl(IOMEM(ADDR_EMI + addr)) & ~(iMask << ((counter_num % 2) * 16));
 
-
+		/* set master and transaction type fields */
 		value |= (((trans_type & MASK_TRANS_TYPE) << 8) |
 			  (master & MASK_MASTER)) << ((counter_num % 2) * 16);
 	}
@@ -146,83 +158,6 @@ int MET_BM_SetTtypeCounterRW(unsigned int bmrw0_val, unsigned int bmrw1_val)
 			   value_origin);
 
 	}
-	return BM_REQ_OK;
-}
-
-int MET_BM_Set_WsctTsct_id_sel(unsigned int counter_num, unsigned int enable)
-{
-	unsigned int value;
-
-	if (counter_num > 3)
-		return BM_ERR_WRONG_REQ;
-
-	value =
-	    ((emi_readl(IOMEM(ADDR_EMI + EMI_BMEN2)) & (~(1 << (28 + counter_num)))) |
-	     (enable << (28 + counter_num)));
-	emi_reg_sync_writel(value, ADDR_EMI + EMI_BMEN2);
-
-	return BM_REQ_OK;
-}
-
-int MET_BM_SetbusID_En(const unsigned int counter_num,
-		       const unsigned int enable)
-{
-	unsigned int value;
-
-	if ((counter_num < 1 || counter_num > BM_COUNTER_MAX) || (enable > 1))
-		return BM_ERR_WRONG_REQ;
-
-	if (enable == 0) {
-
-		value = (emi_readl(IOMEM(ADDR_EMI + EMI_BMEN2))
-			 & ~(1 << (counter_num - 1)));
-	} else {
-
-		value = (emi_readl(IOMEM(ADDR_EMI + EMI_BMEN2))
-			 | (1 << (counter_num - 1)));
-	}
-	emi_reg_sync_writel(value, ADDR_EMI + EMI_BMEN2);
-
-	return BM_REQ_OK;
-}
-
-int MET_BM_SetbusID(const unsigned int counter_num,
-		    const unsigned int id)
-{
-	unsigned int value, addr, shift_num;
-
-	if ((counter_num < 1 || counter_num > BM_COUNTER_MAX))
-		return BM_ERR_WRONG_REQ;
-
-
-	addr = EMI_BMID0 + (counter_num - 1) / 2 * 4;
-	shift_num = ((counter_num - 1) % 2) * 16;
-
-	value = emi_readl(IOMEM(ADDR_EMI + addr)) & ~(EMI_BMID_MASK << shift_num);
-
-
-	if (id <= 0xffff)
-		value |= id << shift_num;
-
-	emi_reg_sync_writel(value, ADDR_EMI + addr);
-
-	return BM_REQ_OK;
-}
-
-int MET_BM_SetUltraHighFilter(const unsigned int counter_num, const unsigned int enable)
-{
-	unsigned int value;
-
-	if ((counter_num < 1 || counter_num > BM_COUNTER_MAX) || (enable > 1))
-		return BM_ERR_WRONG_REQ;
-
-
-	value = (emi_readl(IOMEM(ADDR_EMI + EMI_BMEN1))
-		 & ~(1 << (counter_num - 1)))
-		| (enable << (counter_num - 1));
-
-	emi_reg_sync_writel(value, ADDR_EMI + EMI_BMEN1);
-
 	return BM_REQ_OK;
 }
 

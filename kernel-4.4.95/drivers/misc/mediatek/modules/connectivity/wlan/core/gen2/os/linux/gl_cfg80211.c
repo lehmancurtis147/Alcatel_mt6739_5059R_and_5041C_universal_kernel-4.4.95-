@@ -832,19 +832,17 @@ int mtk_cfg80211_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 	ASSERT(prGlueInfo);
 
+	if (!prGlueInfo->prAdapter->fgEnCfg80211Scan) {
+		DBGLOG(SCN, WARN, "Disable cfg80211 scan.\n");
+		return -EBUSY;
+	}
+
 #if CFG_MULTI_SSID_SCAN
 	kalMemZero(&rScanRequest, sizeof(PARAM_SCAN_REQUEST_ADV_T));
 	/* check if there is any pending scan not yet finished */
 	if (prGlueInfo->prScanRequest != NULL) {
 		DBGLOG(REQ, ERROR, "prGlueInfo->prScanRequest != NULL\n");
 		return -EBUSY;
-	}
-
-	/* check if there is any pending sched_scan not yet finished */
-	/* input NULL ndev to stop is find, since it will never be used. */
-	if (prGlueInfo->prSchedScanRequest != NULL) {
-		DBGLOG(REQ, WARN, "SchedScan has already started, stop sched scan\n");
-		mtk_cfg80211_sched_scan_stop(wiphy, NULL);
 	}
 
 	old_num_ssid = num_ssid = (UINT_32)request->n_ssids;
@@ -2003,6 +2001,11 @@ mtk_cfg80211_sched_scan_start(IN struct wiphy *wiphy,
 
 	ASSERT(prGlueInfo);
 
+	if (!prGlueInfo->prAdapter->fgEnCfg80211Scan) {
+		DBGLOG(SCN, WARN, "Disable cfg80211 sched scan.\n");
+		return -EBUSY;
+	}
+
 	/* check if there is any pending scan/sched_scan not yet finished */
 	if (prGlueInfo->prScanRequest != NULL || prGlueInfo->prSchedScanRequest != NULL) {
 		DBGLOG(SCN, ERROR, "(prGlueInfo->prScanRequest != NULL || prGlueInfo->prSchedScanRequest != NULL)\n");
@@ -2779,7 +2782,7 @@ mtk_cfg80211_testmode_set_packet_filter(IN struct wiphy *wiphy, IN void *data, I
 	if (data && len)
 		prParams = (P_NL80211_DRIVER_RXFILTER_PARAMS)data;
 	else {
-		DBGLOG(QM, ERROR, "mtk_cfg80211_testmode_set_packet_filter, data is NULL\n");
+		DBGLOG(QM, ERROR, "mtk_cfg80211_testmode_set_packet_filter, data is NULL or len is 0\n");
 		return -EINVAL;
 	}
 

@@ -1154,6 +1154,11 @@ LONG WMT_unlocked_ioctl(struct file *filp, UINT32 cmd, ULONG arg)
 			UINT32 effectiveLen = 14;
 			P_OSAL_SIGNAL pSignal = NULL;
 
+			if (!mtk_wcn_stp_is_ready()) {
+				iRet = -EFAULT;
+				break;
+			}
+
 			if (copy_from_user(&desense_buf[0], (PVOID)arg, effectiveLen)) {
 				WMT_ERR_FUNC("copy_from_user failed at %d\n", __LINE__);
 				iRet = -EFAULT;

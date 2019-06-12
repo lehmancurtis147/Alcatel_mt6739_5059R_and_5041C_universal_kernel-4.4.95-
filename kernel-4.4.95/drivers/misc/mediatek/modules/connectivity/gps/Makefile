@@ -48,8 +48,6 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/mach
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/connectivity/common
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include/mach
 ###############################################################################
 
 MODULE_NAME := gps_drv
@@ -74,8 +72,14 @@ ccflags-y += -I$(WMT_SRC_FOLDER)/common_main/linux/include
 ccflags-y += -I$(WMT_SRC_FOLDER)/common_main/core/include
 ccflags-y += -I$(WMT_SRC_FOLDER)/common_main/platform/include
 
-ifneq ($(CONFIG_MTK_GPS),)
-$(MODULE_NAME)-objs += gps.o
+$(warning hao test $(CONFIG_MTK_CONN_MT3337_CHIP_SUPPORT))
+
+ifeq ($(CONFIG_MTK_CONN_MT3337_CHIP_SUPPORT),y)
+        $(MODULE_NAME)-objs += gps_mt3337.o
+else
+        ifneq ($(CONFIG_MTK_GPS),)
+                $(MODULE_NAME)-objs += gps.o
+        endif
 endif
 $(MODULE_NAME)-objs += stp_chrdev_gps.o
 ifneq ($(CONFIG_MTK_GPS_EMI),)

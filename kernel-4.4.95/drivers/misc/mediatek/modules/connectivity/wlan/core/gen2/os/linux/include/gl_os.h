@@ -57,6 +57,7 @@
 
 #define IPVERSION				4
 #define IP_HEADER_LEN				20
+#define IP_PROTO_HLEN				9
 
 #define IP_PRO_ICMP				0x01
 #define IP_PRO_UDP				0x11
@@ -637,6 +638,8 @@ struct _GLUE_INFO_T {
 	/* store the FW roaming enable state which FWK determines */
 	/* if it's = 0, ignore the black/whitelists settings from FWK */
 	UINT_32 u4FWRoamingEnable;
+
+	BOOLEAN fgIsFwDlDone;
 };
 
 typedef irqreturn_t(*PFN_WLANISR) (int irq, void *dev_id, struct pt_regs *regs);

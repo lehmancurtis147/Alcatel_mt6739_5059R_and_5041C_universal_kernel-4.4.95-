@@ -748,7 +748,8 @@ wextSrchDesiredWPSIE(IN PUINT_8 pucIEStart,
 */
 /*----------------------------------------------------------------------------*/
 static int
-wext_get_name(IN struct net_device *prNetDev, IN struct iw_request_info *prIwrInfo, OUT char *pcName, IN char *pcExtra)
+wext_get_name(IN struct net_device *prNetDev, IN struct iw_request_info *prIwrInfo,
+			OUT char *pcName, IN UINT_32 pcNameSize, IN char *pcExtra)
 {
 	ENUM_PARAM_NETWORK_TYPE_T eNetWorkType = PARAM_NETWORK_TYPE_NUM;
 
@@ -758,7 +759,7 @@ wext_get_name(IN struct net_device *prNetDev, IN struct iw_request_info *prIwrIn
 
 	ASSERT(prNetDev);
 	ASSERT(pcName);
-	if (GLUE_CHK_PR2(prNetDev, pcName) == FALSE)
+	if (FALSE == GLUE_CHK_PR2(prNetDev, pcName))
 		return -EINVAL;
 	prGlueInfo = *((P_GLUE_INFO_T *) netdev_priv(prNetDev));
 
@@ -770,23 +771,25 @@ wext_get_name(IN struct net_device *prNetDev, IN struct iw_request_info *prIwrIn
 
 		switch (eNetWorkType) {
 		case PARAM_NETWORK_TYPE_DS:
-			strncpy(pcName, "IEEE 802.11b", IFNAMSIZ);
+			strncpy(pcName, "IEEE 802.11b", pcNameSize);
 			break;
 		case PARAM_NETWORK_TYPE_OFDM24:
-			strncpy(pcName, "IEEE 802.11bgn", IFNAMSIZ);
+			strncpy(pcName, "IEEE 802.11bgn", pcNameSize);
 			break;
 		case PARAM_NETWORK_TYPE_AUTOMODE:
 		case PARAM_NETWORK_TYPE_OFDM5:
-			strncpy(pcName, "IEEE 802.11abgn", IFNAMSIZ);
+			strncpy(pcName, "IEEE 802.11abgn", pcNameSize);
 			break;
 		case PARAM_NETWORK_TYPE_FH:
 		default:
-			strncpy(pcName, "IEEE 802.11", IFNAMSIZ);
+			strncpy(pcName, "IEEE 802.11", pcNameSize);
 			break;
 		}
 	} else {
-		strncpy(pcName, "Disconnected", IFNAMSIZ);
+		strncpy(pcName, "Disconnected", pcNameSize);
 	}
+
+	pcName[pcNameSize - 1] = '\0';
 
 	return 0;
 }				/* wext_get_name */
@@ -3030,11 +3033,10 @@ wext_set_encode_ext(IN struct net_device *prNetDev,
 				memcpy(((PUINT_8) prKey->aucKeyMaterial) + 16, prIWEncExt->key + 24, 8);
 				memcpy((prKey->aucKeyMaterial) + 24, prIWEncExt->key + 16, 8);
 			} else {
-				/* aucKeyMaterial is defined as a 32-elements array */
-				if (prIWEncExt->key_len > 32) {
-					DBGLOG(REQ, ERROR, "prIWEncExt->key_len: %d is too long!\n",
+				if (prIWEncExt->key_len > sizeof(prKey->aucKeyMaterial)) {
+					DBGLOG(REQ, ERROR, "prIWEncExt->key_len: %u is too long!\n",
 						prIWEncExt->key_len);
-					return -EFAULT;
+					return -EINVAL;
 				}
 				memcpy(prKey->aucKeyMaterial, prIWEncExt->key, prIWEncExt->key_len);
 			}
@@ -3208,7 +3210,7 @@ int wext_support_ioctl(IN struct net_device *prDev, IN struct ifreq *prIfReq, IN
 
 	switch (i4Cmd) {
 	case SIOCGIWNAME:	/* 0x8B01, get wireless protocol name */
-		ret = wext_get_name(prDev, &rIwReqInfo, (char *)&iwr->u.name, NULL);
+		ret = wext_get_name(prDev, &rIwReqInfo, (char *)&iwr->u.name, sizeof(iwr->u.name), NULL);
 		break;
 
 		/* case SIOCSIWNWID: 0x8B02, deprecated */

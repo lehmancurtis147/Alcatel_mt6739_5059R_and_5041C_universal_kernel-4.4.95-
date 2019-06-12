@@ -954,7 +954,8 @@ P_MSDU_INFO_T qmEnqueueTxPackets(IN P_ADAPTER_T prAdapter, IN P_MSDU_INFO_T prMs
 #endif
 		} else {
 
-			DBGLOG(QM, WARN, "Drop the Packet for inactive Bss %u\n", prCurrentMsduInfo->ucNetworkType);
+			DBGLOGLIMITED(QM, WARN, "Drop the Packet for inactive Bss %u\n",
+				      prCurrentMsduInfo->ucNetworkType);
 			QM_DBG_CNT_INC(prQM, QM_DBG_CNT_31);
 			prTxQue = &rNotEnqueuedQue;
 			TX_INC_CNT(&prAdapter->rTxCtrl, TX_INACTIVE_BSS_DROP);
@@ -1694,7 +1695,7 @@ qmDequeueTxPacketsFromPerTypeQueues(IN P_ADAPTER_T prAdapter, OUT P_QUE_T prQue,
 P_MSDU_INFO_T qmDequeueTxPackets(IN P_ADAPTER_T prAdapter, IN P_TX_TCQ_STATUS_T prTcqStatus)
 {
 
-	INT32 i, lastNum;
+	INT32 i;
 	P_MSDU_INFO_T prReturnedPacketListHead;
 	QUE_T rReturnedQue;
 
@@ -1706,7 +1707,6 @@ P_MSDU_INFO_T qmDequeueTxPackets(IN P_ADAPTER_T prAdapter, IN P_TX_TCQ_STATUS_T 
 
 	/* dequeue packets from different AC queue based on available aucFreeBufferCount */
 	/* TC0 to TC4: AC0~AC3, 802.1x (commands packets are not handled by QM) */
-	lastNum = 0;
 	for (i = TC4_INDEX; i >= TC0_INDEX; i--) {
 		DBGLOG(QM, LOUD, "Dequeue packets from Per-STA queue[%d]\n", i);
 
@@ -1739,11 +1739,7 @@ P_MSDU_INFO_T qmDequeueTxPackets(IN P_ADAPTER_T prAdapter, IN P_TX_TCQ_STATUS_T 
 			prTcqStatus->aucMaxNumOfBuffer[i]);
 
 		/* The aggregate number of dequeued packets */
-		if (rReturnedQue.u4NumElem-lastNum > 0)
-			DBGLOG(QM, TRACE, "DQA)[%u](%u) ,Max: %d ,Queue Length:%d\n", i,
-				rReturnedQue.u4NumElem-lastNum, prTcqStatus->aucMaxNumOfBuffer[i],
-				(UINT_32) (QM_GET_TX_QUEUE_LEN(prAdapter, i)));
-		lastNum = rReturnedQue.u4NumElem;
+		DBGLOG(QM, LOUD, "DQA)[%u](%u)\n", i, rReturnedQue.u4NumElem);
 	}
 
 	/* TC5 (BMCAST or STA-NOT-FOUND packets) */
@@ -2151,25 +2147,6 @@ VOID qmReassignTcResource(IN P_ADAPTER_T prAdapter)
 			if (u4ShareCount == 0) {
 				prQM->au4CurrentTcResource[TC1_INDEX] += u4ResidualResource;
 				DBGLOG(QM, ERROR, "QM: (Error) u4ShareCount = 0\n");
-				break;
-			}
-
-
-			for (i = TC_NUM - 1; i >= 0; i--) {
-				if (i == TC4_INDEX)
-					continue;
-				if (ai4PerTcResourceDemand[i] == 0)
-					continue;
-
-				if (ai4PerTcResourceDemand[i] - u4ResidualResource >= 0) {
-					ai4PerTcResourceDemand[i] -= u4ResidualResource;
-					prQM->au4CurrentTcResource[i] += u4ResidualResource;
-					u4ResidualResource = 0;
-				} else {
-					prQM->au4CurrentTcResource[i] += ai4PerTcResourceDemand[i];
-					u4ResidualResource -= ai4PerTcResourceDemand[i];
-					ai4PerTcResourceDemand[i] = 0;
-				}
 				break;
 			}
 
@@ -2616,23 +2593,39 @@ VOID qmProcessPktWithReordering(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb,
 	}
 	/* Case 3: Fall behind */
 	else {
+#if CFG_SUPPORT_GAMING_MODE
+		if (prAdapter->fgEnGamingMode) {
+			PUINT_8 pucData = (PUINT_8) prSwRfb->pvHeader;
+			UINT_16 u2Etype = (pucData[ETH_TYPE_LEN_OFFSET] << 8) | (pucData[ETH_TYPE_LEN_OFFSET + 1]);
 
+			if (u2Etype == ETH_P_IP) {
+				PUINT_8 pucEthBody = &pucData[ETH_HLEN];
+				UINT_8 ucIpProto = pucEthBody[IP_PROTO_HLEN];
+
+				if (ucIpProto == IP_PRO_UDP || ucIpProto == IP_PRO_TCP) {
+					DBGLOG(QM, LOUD, "QM: No drop packet:[%d](%d){%d,%d}\n",
+					       prSwRfb->ucTid, u4SeqNo, u4WinStart, u4WinEnd);
+					STATS_RX_REORDER_FALL_BEHIND_NO_DROP_INC(prStaRec);
+					QUEUE_INSERT_TAIL(prReturnedQue, (P_QUE_ENTRY_T) prSwRfb);
+					return;
+				}
+			}
+		}
+#endif /* CFG_SUPPORT_GAMING_MODE */
 #if QM_RX_WIN_SSN_AUTO_ADVANCING
 #if QM_RX_INIT_FALL_BEHIND_PASS
 		if (prReorderQueParm->fgIsWaitingForPktWithSsn) {
 			/* ?? prSwRfb->eDst = RX_PKT_DESTINATION_HOST; */
 			QUEUE_INSERT_TAIL(prReturnedQue, (P_QUE_ENTRY_T) prSwRfb);
-			/* DbgPrint("QM:(P)[%d](%ld){%ld,%ld}\n", prSwRfb->ucTid, u4SeqNo, u4WinStart, u4WinEnd); */
 			return;
 		}
 #endif
 #endif
-
+		DBGLOG(QM, LOUD, "QM: drop packet:[%d](%d){%d,%d}\n", prSwRfb->ucTid, u4SeqNo, u4WinStart, u4WinEnd);
 		STATS_RX_REORDER_FALL_BEHIND_INC(prStaRec);
 		/* An erroneous packet */
 		prSwRfb->eDst = RX_PKT_DESTINATION_NULL;
 		QUEUE_INSERT_TAIL(prReturnedQue, (P_QUE_ENTRY_T) prSwRfb);
-		/* DbgPrint("QM:(D)[%d](%ld){%ld,%ld}\n", prSwRfb->ucTid, u4SeqNo, u4WinStart, u4WinEnd); */
 		return;
 	}
 
@@ -2849,7 +2842,7 @@ qmPopOutDueToFallWithin(P_ADAPTER_T prAdapter, IN P_RX_BA_ENTRY_T prReorderQuePa
 			if (!prReorderQueParm->fgHasBubble) {
 				cnmTimerStartTimer(prAdapter,
 						   &(prReorderQueParm->rReorderBubbleTimer),
-						   QM_RX_BA_ENTRY_MISS_TIMEOUT_MS);
+						   prAdapter->u4QmRxBaMissTimeout);
 				prReorderQueParm->fgHasBubble = TRUE;
 				prReorderQueParm->u2FirstBubbleSn = prReorderQueParm->u2WinStart;
 
@@ -2861,7 +2854,7 @@ qmPopOutDueToFallWithin(P_ADAPTER_T prAdapter, IN P_RX_BA_ENTRY_T prReorderQuePa
 			}
 			if ((fgMissing == TRUE) &&
 			    CHECK_FOR_TIMEOUT(rCurrentTime, (*prMissTimeout),
-					      MSEC_TO_SYSTIME(QM_RX_BA_ENTRY_MISS_TIMEOUT_MS))) {
+					      MSEC_TO_SYSTIME(prAdapter->u4QmRxBaMissTimeout))) {
 				DBGLOG(QM, TRACE,
 				       "QM:RX BA Timout Next Tid %d SSN %d\n", prReorderQueParm->ucTid,
 					prReorderedSwRfb->u2SSN);
@@ -2949,7 +2942,7 @@ VOID qmPopOutDueToFallAhead(P_ADAPTER_T prAdapter, IN P_RX_BA_ENTRY_T prReorderQ
 			if (!prReorderQueParm->fgHasBubble) {
 				cnmTimerStartTimer(prAdapter,
 						   &(prReorderQueParm->rReorderBubbleTimer),
-						   QM_RX_BA_ENTRY_MISS_TIMEOUT_MS);
+						   prAdapter->u4QmRxBaMissTimeout);
 				prReorderQueParm->fgHasBubble = TRUE;
 				prReorderQueParm->u2FirstBubbleSn = prReorderQueParm->u2WinStart;
 
@@ -5015,7 +5008,7 @@ VOID qmHandleRxArpPackets(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb)
 	prBssInfo = &(prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_AIS_INDEX]);
 	if (arpOpCode == ARP_PRO_RSP) {
 		arpMoniter = 0;
-		if (prBssInfo && prBssInfo->prStaRecOfAP) {
+		if (prBssInfo && prBssInfo->prStaRecOfAP && prBssInfo->prStaRecOfAP->aucMacAddr) {
 			if (EQUAL_MAC_ADDR(&(pucData[ETH_TYPE_LEN_OFFSET + 10]), /* source hardware address */
 					prBssInfo->prStaRecOfAP->aucMacAddr)) {
 				kalMemCopy(apIp, &(pucData[ETH_TYPE_LEN_OFFSET + 16]), sizeof(apIp));
@@ -5179,7 +5172,7 @@ VOID qmHandleReorderBubbleTimeout(IN P_ADAPTER_T prAdapter, IN ULONG ulParamPtr)
 		       "QM:Bub Check Cancel STA[%u] TID[%u], Bub check event alloc failed\n",
 			prReorderQueParm->ucStaRecIdx, prReorderQueParm->ucTid);
 
-		cnmTimerStartTimer(prAdapter, &(prReorderQueParm->rReorderBubbleTimer), QM_RX_BA_ENTRY_MISS_TIMEOUT_MS);
+		cnmTimerStartTimer(prAdapter, &(prReorderQueParm->rReorderBubbleTimer), prAdapter->u4QmRxBaMissTimeout);
 
 		DBGLOG(QM, TRACE, "QM:Bub Timer Restart STA[%u] TID[%u] BubSN[%u] Win{%d, %d}\n",
 				   prReorderQueParm->ucStaRecIdx,
@@ -5272,7 +5265,7 @@ VOID qmHandleEventCheckReorderBubble(IN P_ADAPTER_T prAdapter, IN P_WIFI_EVENT_T
 	/* First bubble has been filled but others exist */
 	else {
 		prReorderQueParm->u2FirstBubbleSn = prReorderQueParm->u2WinStart;
-		cnmTimerStartTimer(prAdapter, &(prReorderQueParm->rReorderBubbleTimer), QM_RX_BA_ENTRY_MISS_TIMEOUT_MS);
+		cnmTimerStartTimer(prAdapter, &(prReorderQueParm->rReorderBubbleTimer), prAdapter->u4QmRxBaMissTimeout);
 
 		DBGLOG(QM, TRACE, "QM:Bub Timer STA[%u] TID[%u] BubSN[%u] Win{%d, %d}\n",
 				   prReorderQueParm->ucStaRecIdx,

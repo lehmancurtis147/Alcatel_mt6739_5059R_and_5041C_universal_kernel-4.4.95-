@@ -3415,6 +3415,9 @@ wlanoidRssiMonitor(IN P_ADAPTER_T prAdapter,
 
 	kalMemZero(&rRssi, sizeof(PARAM_RSSI_MONITOR_T));
 
+	if (kalGetMediaStateIndicated(prAdapter->prGlueInfo) == PARAM_MEDIA_STATE_DISCONNECTED)
+		return WLAN_STATUS_ADAPTER_NOT_READY;
+
 	kalMemCopy(&rRssi, pvQueryBuffer, sizeof(PARAM_RSSI_MONITOR_T));
 	if (rRssi.enable) {
 		if (rRssi.max_rssi_value > PARAM_WHQL_RSSI_MAX_DBM)
@@ -12281,6 +12284,86 @@ wlanoidAbortScan(IN P_ADAPTER_T prAdapter,
 	return WLAN_STATUS_SUCCESS;
 }
 
+#if CFG_SUPPORT_GAMING_MODE
+/*----------------------------------------------------------------------------*/
+/*!
+* \brief This routine is called to enable/disable gaming mode
+*
+* \param[in]  pvAdapter       A pointer to the Adapter structure.
+* \param[in]  pvSetBuffer     A pointer to the buffer that holds the data to be set.
+* \param[in]  u4SetBufferLen  The length of the set buffer.
+* \param[out] pu4SetInfoLen   If the call is successful, returns the number of
+*                             bytes read from the set buffer. If the call failed
+*                             due to invalid length of the set buffer, returns
+*                             the amount of storage needed.
+*
+* \retval WLAN_STATUS_SUCCESS
+
+*/
+/*----------------------------------------------------------------------------*/
+WLAN_STATUS wlanoidSetGamingMode(IN P_ADAPTER_T prAdapter, IN PVOID pvSetBuffer,
+				 IN UINT_32 u4SetBufferLen, OUT PUINT_32 pu4SetInfoLen)
+{
+	struct CMD_GAMING_MODE_HEADER rGameModeHeader;
+	BOOLEAN fgEnable, fgEnScan;
+	UINT_32 u4Events;
+
+	DEBUGFUNC("wlanoidSetGamingMode");
+
+	ASSERT(prAdapter);
+	ASSERT(pu4SetInfoLen);
+
+	if (u4SetBufferLen != sizeof(UINT_32))
+		return WLAN_STATUS_INVALID_LENGTH;
+
+	ASSERT(pvSetBuffer);
+
+	kalMemCopy(&u4Events, pvSetBuffer, u4SetBufferLen);
+
+	DBGLOG(OID, INFO, "Event change gaming=%d, network:%d whitelist:%d\n",
+	       (u4Events & GED_EVENT_GAS),
+	       (u4Events & GED_EVENT_NETWORK),
+	       (u4Events & GED_EVENT_DOPT_WIFI_SCAN));
+
+	fgEnable = ((u4Events & GED_EVENT_GAS) != 0) && ((u4Events & GED_EVENT_NETWORK) != 0) &&
+		(kalGetMediaStateIndicated(prAdapter->prGlueInfo) == PARAM_MEDIA_STATE_CONNECTED);
+	fgEnScan = (!fgEnable || ((u4Events & GED_EVENT_DOPT_WIFI_SCAN) != 0));
+
+	if (fgEnScan != prAdapter->fgEnCfg80211Scan || fgEnable != prAdapter->fgEnGamingMode)
+		DBGLOG(OID, INFO, "Gaming mode event change Enable=%d EnableScan:%d\n",
+		       fgEnable, fgEnScan);
+
+	prAdapter->fgEnCfg80211Scan = fgEnScan;
+
+	if (fgEnable == prAdapter->fgEnGamingMode)
+		return WLAN_STATUS_SUCCESS;
+
+	prAdapter->fgEnGamingMode = fgEnable;
+	prAdapter->u4QmRxBaMissTimeout = fgEnable ?
+		SHORT_QM_RX_BA_ENTRY_MISS_TIMEOUT_MS : DEFAULT_QM_RX_BA_ENTRY_MISS_TIMEOUT_MS;
+
+	rGameModeHeader.ucVersion = GAMING_MODE_CMD_V1;
+	rGameModeHeader.ucType = 0;
+	rGameModeHeader.ucMagicCode = GAMING_MODE_MAGIC_CODE;
+	rGameModeHeader.ucBufferLen = sizeof(struct GAMING_MODE_SETTING);
+	rGameModeHeader.rSetting.fgEnable = fgEnable;
+
+	wlanSendSetQueryCmd(prAdapter,	/* prAdapter */
+			    CMD_ID_SET_GAMING_MODE,	/* ucCID */
+			    TRUE,	/* fgSetQuery */
+			    FALSE,	/* fgNeedResp */
+			    TRUE,	/* fgIsOid */
+			    NULL,	/* pfCmdDoneHandler */
+			    NULL,	/* pfCmdTimeoutHandler */
+			    sizeof(struct CMD_GAMING_MODE_HEADER),	/* u4SetQueryInfoLen */
+			    (PUINT_8)&rGameModeHeader,	/* pucInfoBuffer */
+			    NULL,	/* pvSetQueryBuffer */
+			    0	/* u4SetQueryBufferLen */
+		);
+	return WLAN_STATUS_SUCCESS;
+}
+#endif /* CFG_SUPPORT_GAMING_MODE */
+
 WLAN_STATUS
 wlanoidQueryWifiLogLevelSupport(IN P_ADAPTER_T prAdapter,
 		IN PVOID pvQueryBuffer, IN UINT_32 u4QueryBufferLen, OUT PUINT_32 pu4QueryInfoLen)
@@ -12352,3 +12435,4 @@ wlanoidSetWifiLogLevel(IN P_ADAPTER_T prAdapter,
 
 	return WLAN_STATUS_SUCCESS;
 }
+

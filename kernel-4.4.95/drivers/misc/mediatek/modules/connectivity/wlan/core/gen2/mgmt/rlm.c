@@ -144,7 +144,7 @@ VOID rlmFsmEventUninit(P_ADAPTER_T prAdapter)
 		 */
 		rlmBssReset(prAdapter, prBssInfo);
 	}
-	rlmCancelRadioMeasurement(prAdapter);
+	rlmFreeMeasurementResources(prAdapter);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -2039,14 +2039,14 @@ schedule_next:
 			} else {
 				rlmFreeMeasurementResources(prAdapter);
 				DBGLOG(RLM, INFO, "Radio Measurement done\n");
-				return;
-			}
+		return;
+	}
 		} else {
-			UINT_16 u2IeSize = IE_SIZE(prRmReq->prCurrMeasElem);
+			UINT_8 ucIeSize = IE_SIZE(prRmReq->prCurrMeasElem);
 
 			prCurrReq = prRmReq->prCurrMeasElem =
-				(P_IE_MEASUREMENT_REQ_T)((PUINT_8)prRmReq->prCurrMeasElem + u2IeSize);
-			prRmReq->u2RemainReqLen -= u2IeSize;
+				(P_IE_MEASUREMENT_REQ_T)((PUINT_8)prRmReq->prCurrMeasElem + ucIeSize);
+			prRmReq->u2RemainReqLen -= ucIeSize;
 		}
 		fgNewStarted = FALSE;
 		goto schedule_next;
@@ -2057,7 +2057,7 @@ schedule_next:
 		P_LINK_T prReportLink = &prRmRep->rReportLink;
 		P_LINK_T prFreeReportLink = &prRmRep->rFreeReportLink;
 		PUINT_8 pucReportFrame = prRmRep->pucReportFrameBuff + prRmRep->u2ReportFrameLen;
-		UINT_16 u2IeSize = 0;
+		UINT_8 ucIeSize = 0;
 		BOOLEAN fgNewLoop = FALSE;
 
 		DBGLOG(RLM, INFO, "total %u report element for current request\n", prReportLink->u4NumElem);
@@ -2066,15 +2066,15 @@ schedule_next:
 			LINK_REMOVE_HEAD(prReportLink, prReportEntry, struct RM_MEASURE_REPORT_ENTRY *);
 			if (!prReportEntry)
 				break;
-			u2IeSize = IE_SIZE(prReportEntry->aucMeasReport);
+			ucIeSize = IE_SIZE(prReportEntry->aucMeasReport);
 			/* if reach the max length of a MMPDU size, send a Rm report first */
-			if (u2IeSize + prRmRep->u2ReportFrameLen > RM_REPORT_FRAME_MAX_LENGTH) {
+			if (ucIeSize + prRmRep->u2ReportFrameLen > RM_REPORT_FRAME_MAX_LENGTH) {
 				rlmTxRadioMeasurementReport(prAdapter);
 				pucReportFrame = prRmRep->pucReportFrameBuff + prRmRep->u2ReportFrameLen;
 			}
-			kalMemCopy(pucReportFrame, prReportEntry->aucMeasReport, u2IeSize);
-			pucReportFrame += u2IeSize;
-			prRmRep->u2ReportFrameLen += u2IeSize;
+			kalMemCopy(pucReportFrame, prReportEntry->aucMeasReport, ucIeSize);
+			pucReportFrame += ucIeSize;
+			prRmRep->u2ReportFrameLen += ucIeSize;
 			LINK_INSERT_TAIL(prFreeReportLink, &prReportEntry->rLinkEntry);
 		}
 		/* if Measurement is done, free report element memory */
@@ -2100,10 +2100,10 @@ schedule_next:
 			}
 		}
 		if (!fgNewLoop) {
-			u2IeSize = IE_SIZE(prRmReq->prCurrMeasElem);
+			ucIeSize = IE_SIZE(prRmReq->prCurrMeasElem);
 			prCurrReq = prRmReq->prCurrMeasElem =
-				(P_IE_MEASUREMENT_REQ_T)((PUINT_8)prRmReq->prCurrMeasElem + u2IeSize);
-			prRmReq->u2RemainReqLen -= u2IeSize;
+				(P_IE_MEASUREMENT_REQ_T)((PUINT_8)prRmReq->prCurrMeasElem + ucIeSize);
+			prRmReq->u2RemainReqLen -= ucIeSize;
 		}
 	}
 
@@ -2203,15 +2203,8 @@ schedule_next:
 /* If disconnect with the target AP, radio measurement should be canceled. */
 VOID rlmCancelRadioMeasurement(P_ADAPTER_T prAdapter)
 {
-	BOOLEAN fgHasBcnReqTimer = timerPendingTimer(&rBeaconReqTimer);
-	BOOLEAN fgHasTsmTimer = timerPendingTimer(&rTSMReqTimer);
-
-	DBGLOG(RLM, INFO, "Cancel measurement, Beacon Req timer is %d and TSM Req timer is %d\n",
-		fgHasBcnReqTimer, fgHasTsmTimer);
-	if (fgHasBcnReqTimer)
-		cnmTimerStopTimer(prAdapter, &rBeaconReqTimer);
-	if (fgHasTsmTimer)
-		cnmTimerStopTimer(prAdapter, &rTSMReqTimer);
+	DBGLOG(RLM, INFO, "Cancel measurement, timer is running %d\n", timerPendingTimer(&rBeaconReqTimer));
+	cnmTimerStopTimer(prAdapter, &rBeaconReqTimer);
 	rlmFreeMeasurementResources(prAdapter);
 }
 
@@ -2387,14 +2380,14 @@ VOID rlmDoBeaconMeasurement(P_ADAPTER_T prAdapter, ULONG ulParam)
 	}
 }
 
+/*
+*/
 static BOOLEAN rlmRmFrameIsValid(P_SW_RFB_T prSwRfb)
 {
 	UINT_16 u2ElemLen = 0;
 	UINT_16 u2Offset = (UINT_16)OFFSET_OF(ACTION_RM_REQ_FRAME, aucInfoElem);
 	PUINT_8 pucIE = (PUINT_8)prSwRfb->pvHeader;
-	P_IE_MEASUREMENT_REQ_T prCurrMeasElem = NULL;
 	UINT_16 u2CalcIELen = 0;
-	UINT_16 u2IELen = 0;
 
 	if (prSwRfb->u2PacketLen <= u2Offset) {
 		DBGLOG(RLM, ERROR, "Rm Packet length %d is too short\n", prSwRfb->u2PacketLen);
@@ -2403,36 +2396,10 @@ static BOOLEAN rlmRmFrameIsValid(P_SW_RFB_T prSwRfb)
 	pucIE += u2Offset;
 	u2ElemLen = prSwRfb->u2PacketLen - u2Offset;
 	IE_FOR_EACH(pucIE, u2ElemLen, u2Offset) {
-		u2IELen = IE_LEN(pucIE);
-
-		/* The minimum value of the Length field is 3 (based on a minimum length for the */
-		/* Measurement Request field of 0 octets) */
-		if (u2IELen <= 3) {
-			DBGLOG(RLM, ERROR, "Abnormal RM IE length is %d\n", u2IELen);
+		if (!IE_LEN(pucIE)) {
+			DBGLOG(RLM, ERROR, "RM IE length is 0\n");
 			return FALSE;
 		}
-
-		/* Check whether the length of each measurment request element is reasonable */
-		prCurrMeasElem = (P_IE_MEASUREMENT_REQ_T)pucIE;
-		switch (prCurrMeasElem->ucMeasurementType) {
-		case ELEM_RM_TYPE_BEACON_REQ:
-			if (u2IELen < (3 + OFFSET_OF(RM_BCN_REQ_T, aucSubElements))) {
-				DBGLOG(RLM, ERROR, "Abnormal Becaon Req IE length is %d\n", u2IELen);
-				return FALSE;
-			}
-			break;
-		case ELEM_RM_TYPE_TSM_REQ:
-			if (u2IELen < (3 + OFFSET_OF(RM_TS_MEASURE_REQ_T, aucSubElements))) {
-				DBGLOG(RLM, ERROR, "Abnormal TSM Req IE length is %d\n", u2IELen);
-				return FALSE;
-			}
-			break;
-		default:
-			DBGLOG(RLM, ERROR, "Not support: MeasurementType is %d, IE length is %d\n",
-				prCurrMeasElem->ucMeasurementType, u2IELen);
-			return FALSE;
-		}
-
 		u2CalcIELen += IE_SIZE(pucIE);
 	}
 	if (u2CalcIELen != u2ElemLen) {
@@ -2472,7 +2439,7 @@ VOID rlmProcessRadioMeasurementRequest(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb
 		DBGLOG(RLM, INFO, "Old RM is on-going, cancel it first\n");
 		rlmTxRadioMeasurementReport(prAdapter);
 		wmmRemoveAllTsmMeasurement(prAdapter, FALSE);
-		rlmCancelRadioMeasurement(prAdapter);
+		rlmFreeMeasurementResources(prAdapter);
 	}
 	prRmReqParam->fgRmIsOngoing = TRUE;
 	/* Step1: Save Measurement Request Params */

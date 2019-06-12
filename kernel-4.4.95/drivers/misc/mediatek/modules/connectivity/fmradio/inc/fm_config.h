@@ -185,4 +185,6 @@ extern unsigned short fm_cust_config_fetch(enum fm_cust_cfg_op op_code);
 extern unsigned short fm_cust_config_chip(unsigned short chipid, enum fm_cfg_chip_type type);
 
 extern struct fm_cust_cfg fm_config;
+extern unsigned short g_fm_chipid;
+extern enum fm_cfg_chip_type g_fm_chip_type;
 #endif /* __FM_CONFIG_H__ */

@@ -357,6 +357,8 @@ wlanAdapterStart(IN P_ADAPTER_T prAdapter,
 
 #if CFG_ENABLE_FW_DOWNLOAD
 
+		prAdapter->prGlueInfo->fgIsFwDlDone = FALSE;
+
 		wlanFWDLDebugInit();
 
 		if (pvFwImageMapFile == NULL) {
@@ -551,6 +553,8 @@ wlanAdapterStart(IN P_ADAPTER_T prAdapter,
 			i++;
 			kalMsleep(10);
 		}
+
+		prAdapter->prGlueInfo->fgIsFwDlDone = TRUE;
 
 		if (u4Status == WLAN_STATUS_SUCCESS) {
 			/* 1. reset interrupt status */
@@ -749,6 +753,13 @@ wlanAdapterStart(IN P_ADAPTER_T prAdapter,
 #if (MT6620_E1_ASIC_HIFSYS_WORKAROUND == 1)
 		/* clock gating workaround */
 		prAdapter->fgIsClockGatingEnabled = FALSE;
+#endif
+
+		prAdapter->u4QmRxBaMissTimeout = DEFAULT_QM_RX_BA_ENTRY_MISS_TIMEOUT_MS;
+		prAdapter->fgEnCfg80211Scan = TRUE;
+
+#if CFG_SUPPORT_GAMING_MODE
+		prAdapter->fgEnGamingMode = FALSE;
 #endif
 
 	} while (FALSE);
@@ -1085,7 +1096,7 @@ WLAN_STATUS wlanProcessCommandQueue(IN P_ADAPTER_T prAdapter, IN P_QUE_T prCmdQu
 			wlanReleaseCommand(prAdapter, prCmdInfo);
 		} else if (eFrameAction == FRAME_ACTION_QUEUE_PKT) {
 			if (prCmdInfo->eCmdType == COMMAND_TYPE_SECURITY_FRAME)
-				DBGLOGLIMITED(TX, INFO, "Queue Security frame seqNo=%d\n",
+				DBGLOG(TX, INFO, "Queue Security frame seqNo=%d\n",
 					prCmdInfo->ucCmdSeqNum);
 			QUEUE_INSERT_TAIL(prMergeCmdQue, prQueueEntry);
 		} else if (eFrameAction == FRAME_ACTION_TX_PKT) {
@@ -1094,7 +1105,7 @@ WLAN_STATUS wlanProcessCommandQueue(IN P_ADAPTER_T prAdapter, IN P_QUE_T prCmdQu
 
 			if (rStatus == WLAN_STATUS_RESOURCES) {
 				QUEUE_INSERT_TAIL(prMergeCmdQue, prQueueEntry);
-				DBGLOGLIMITED(TX, INFO,
+				DBGLOG(TX, INFO,
 					"No TC4 resource to send cmd, CID=0x%x, SEQ=%d, CMD type=%d, OID=%d\n",
 					prCmdInfo->ucCID, prCmdInfo->ucCmdSeqNum,
 					prCmdInfo->eCmdType, prCmdInfo->fgIsOid);

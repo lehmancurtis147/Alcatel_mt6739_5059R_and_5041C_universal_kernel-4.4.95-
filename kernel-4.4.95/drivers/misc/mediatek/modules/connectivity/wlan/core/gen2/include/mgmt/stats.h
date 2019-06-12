@@ -248,6 +248,11 @@ typedef struct _STATS_INFO_ENV_T {
 	(__StaRec__)->u4RxReorderFallBehindCnt++; \
 }
 
+#define STATS_RX_REORDER_FALL_BEHIND_NO_DROP_INC(__StaRec__) \
+{ \
+	(__StaRec__)->u4RxReorderFallBehindNoDropCnt++; \
+}
+
 #define STATS_RX_REORDER_HOLE_INC(__StaRec__) \
 { \
 	(__StaRec__)->u4RxReorderHoleCnt++; \

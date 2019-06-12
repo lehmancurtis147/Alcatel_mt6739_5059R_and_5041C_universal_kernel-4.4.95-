@@ -218,9 +218,8 @@ obj-$(CONFIG_FC8180_DTV) += fc8180/
 # End added by shiqiang.chen.hz for task 5597245 on 20171117,add add fc8180 dtv driver.
 
 obj-$(CONFIG_MODULES) += modules/connectivity/common/
-#obj-$(CONFIG_MODULES) += modules/connectivity/bt/mt66xx/
+obj-$(CONFIG_MODULES) += modules/connectivity/bt/mt66xx/
 obj-$(CONFIG_MODULES) += modules/connectivity/fmradio/
 obj-$(CONFIG_MODULES) += modules/connectivity/gps/
-#obj-$(CONFIG_MODULES) += modules/connectivity/wlan/adaptor/
-#obj-$(CONFIG_MODULES) += modules/connectivity/wlan/core/gen2/
-
+obj-$(CONFIG_MODULES) += modules/connectivity/wlan/adaptor/
+obj-$(CONFIG_MODULES) += modules/connectivity/wlan/core/gen2/

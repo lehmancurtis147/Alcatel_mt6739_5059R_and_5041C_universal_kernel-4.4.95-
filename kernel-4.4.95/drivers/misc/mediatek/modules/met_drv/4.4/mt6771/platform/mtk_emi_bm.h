@@ -4,29 +4,33 @@
 
 #define	ADDR_EMI		((unsigned long) BaseAddrEMI)
 
-/*========================================================*/
-/*EMI configuration by project*/
-/*Change config start*/
-/*========================================================*/
-#define _GP_1_Default	(_M0 | _M1)
-#define _GP_2_Default	(_M2 | _M5)
-#define _GP_3_Default	(_M6 | _M7)
+#define BM_Master_M0_name	"m0_APMCU0"
+#define BM_Master_M1_name	"m1_APMCU1"
+#define BM_Master_M2_name	"m2_MM1"
+#define BM_Master_M3_name	"m3_MDMCU"
+#define BM_Master_M4_name	"m4_PERI/MDHW"
+#define BM_Master_M5_name	"m5_MM0"
+#define BM_Master_M6_name	"m6_GPU0"
+#define BM_Master_M7_name	"m7_GPU1"
 
+#define BM_Master_GP_AP	(BM_MASTER_M0 | BM_MASTER_M1)
+#define BM_Master_GP_MM	(BM_MASTER_M2 | BM_MASTER_M5)
+#define BM_Master_GP_GPU	(BM_MASTER_M6 | BM_MASTER_M7)
+#define BM_Master_GP_MD	(BM_MASTER_M3 | BM_MASTER_M4)
 
-/*========================================================*/
-/*Change config end*/
-/*========================================================*/
+#define BM_Master_GP_1_Default	BM_Master_GP_AP
+#define BM_Master_GP_2_Default	BM_Master_GP_MM
+#define BM_Master_GP_3_Default	BM_Master_GP_GPU
 
-
-#define _M0		(0x01)
-#define _M1		(0x02)
-#define _M2		(0x04)
-#define _M3		(0x08)
-#define _M4		(0x10)
-#define _M5		(0x20)
-#define _M6		(0x40)
-#define _M7		(0x80)
-#define _ALL	(0xFF)
+#define BM_MASTER_M0		(0x01)
+#define BM_MASTER_M1		(0x02)
+#define BM_MASTER_M2		(0x04)
+#define BM_MASTER_M3		(0x08)
+#define BM_MASTER_M4		(0x10)
+#define BM_MASTER_M5		(0x20)
+#define BM_MASTER_M6		(0x40)
+#define BM_MASTER_M7		(0x80)
+#define BM_MASTER_ALL		(0xFF)
 
 enum BM_RW_Type {
 	BM_BOTH_READ_WRITE,
@@ -69,23 +73,23 @@ enum {
 };
 
 
-#define EMI_BMID_MASK				(0xFFFF)
 #define BM_COUNTER_MAX				(21)
-
 #define BM_REQ_OK						(0)
 #define BM_ERR_WRONG_REQ				(-1)
 #define BM_ERR_OVERRUN					(-2)
 
-#define BM_TTYPE1_16_ENABLE			(0)
-#define BM_TTYPE1_16_DISABLE			(-1)
-#define BM_TTYPE17_21_ENABLE			(0)
-#define BM_TTYPE17_21_DISABLE			(-1)
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-
+/*ondiemet emi ipi command*/
 enum BM_EMI_IPI_Type {
 	SET_BASE_EMI = 0x0,
-	SET_EBM_CONFIGS1 = 0x7,
-	SET_EBM_CONFIGS2 = 0x8,
+	SET_BASE_DRAMC0,
+	SET_BASE_DRAMC1,
+	SET_BASE_DRAMC2,
+	SET_BASE_DRAMC3,
+	SET_BASE_DDRPHY0AO,
+	SET_BASE_DRAMC0_AO,
+	SET_EBM_CONFIGS1,
+	SET_EBM_CONFIGS2,
 };
 #endif
 
@@ -124,14 +128,9 @@ extern int MET_BM_Init(void);
 extern void MET_BM_DeInit(void);
 extern void MET_BM_SaveCfg(void);
 extern void MET_BM_RestoreCfg(void);
+extern void MET_BM_SetReadWriteType(const unsigned int ReadWriteType);
 extern int MET_BM_SetMonitorCounter(const unsigned int counter_num,
 				    const unsigned int master, const unsigned int trans_type);
 extern int MET_BM_SetTtypeCounterRW(unsigned int bmrw0_val, unsigned int bmrw1_val);
-extern int MET_BM_Set_WsctTsct_id_sel(unsigned int counter_num, unsigned int enable);
-extern int MET_BM_SetbusID_En(const unsigned int counter_num,
-			      const unsigned int enable);
-extern int MET_BM_SetbusID(const unsigned int counter_num,
-			   const unsigned int id);
-extern int MET_BM_SetUltraHighFilter(const unsigned int counter_num, const unsigned int enable);
 extern int MET_BM_SetLatencyCounter(unsigned int enable);
 #endif				/* !__MT_MET_EMI_BM_H__ */

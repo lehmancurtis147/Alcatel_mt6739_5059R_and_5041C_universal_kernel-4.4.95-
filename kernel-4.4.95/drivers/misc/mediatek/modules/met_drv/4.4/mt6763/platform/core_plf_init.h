@@ -82,7 +82,7 @@ extern char **(*vcorefs_get_src_req_name_symbol)(void);
 extern unsigned int *(*vcorefs_get_src_req_symbol)(void);
 extern int (*vcorefs_enable_debug_isr_symbol)(bool);
 extern int (*vcorefs_get_num_opp_symbol)(void);
-extern int *kicker_table_symbol;
+extern int *(*kicker_table_symbol)(void);
 
 extern char *governor_get_kicker_name(int id);
 extern int vcorefs_get_opp_info_num(void);

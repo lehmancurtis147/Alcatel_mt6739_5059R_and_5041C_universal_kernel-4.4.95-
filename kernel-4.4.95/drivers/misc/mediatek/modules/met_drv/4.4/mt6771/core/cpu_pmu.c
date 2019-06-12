@@ -27,9 +27,8 @@ static struct met_pmu *pmu;
 static int nr_arg;
 
 #define CNTMAX 8
-static DEFINE_PER_CPU(unsigned long long[CNTMAX], perfCurr);
-static DEFINE_PER_CPU(unsigned long long[CNTMAX], perfPrev);
-static DEFINE_PER_CPU(int[CNTMAX], perfCntFirst);
+static DEFINE_PER_CPU(int[CNTMAX], perfCurr);
+static DEFINE_PER_CPU(int[CNTMAX], perfPrev);
 static DEFINE_PER_CPU(struct perf_event * [CNTMAX], pevent);
 static DEFINE_PER_CPU(struct perf_event_attr [CNTMAX], pevent_attr);
 static DEFINE_PER_CPU(int, perfSet);
@@ -269,8 +268,7 @@ static void dummy_handler(struct perf_event *event, struct perf_sample_data *dat
 
 void perf_cpupmu_polling(unsigned long long stamp, int cpu)
 {
-	int i, count;
-	long long int delta;
+	int i, count, delta;
 	struct perf_event *ev;
 	unsigned int pmu_value[MXNR_CPU];
 
@@ -280,22 +278,22 @@ void perf_cpupmu_polling(unsigned long long stamp, int cpu)
 	memset(pmu_value, 0, sizeof(pmu_value));
 	count = 0;
 	for (i = 0; i < nr_counters; i++) {
+
 		if (pmu[i].mode == 0)
 			continue;
 
 		ev = per_cpu(pevent, cpu)[i];
 		if ((ev != NULL) && (ev->state == PERF_EVENT_STATE_ACTIVE)) {
-			per_cpu(perfCurr, cpu)[i] = met_perf_event_read_local_symbol(ev);
-			delta = (long long int)(per_cpu(perfCurr, cpu)[i] - per_cpu(perfPrev, cpu)[i]);
-			if (delta < 0)
-				delta *= (-1);
-			per_cpu(perfPrev, cpu)[i] = per_cpu(perfCurr, cpu)[i];
-			if (per_cpu(perfCntFirst, cpu)[i] == 1) {
-				/* we shall omit delta counter when we get first counter */
-				per_cpu(perfCntFirst, cpu)[i] = 0;
+			if (per_cpu(perfPrev, cpu)[i] == 0) {
+				per_cpu(perfPrev, cpu)[i] = met_perf_event_read_local_symbol(ev);
 				continue;
 			}
-			pmu_value[i] = (unsigned int) delta;
+			per_cpu(perfCurr, cpu)[i] = met_perf_event_read_local_symbol(ev);
+			delta = per_cpu(perfCurr, cpu)[i] - per_cpu(perfPrev, cpu)[i];
+			per_cpu(perfPrev, cpu)[i] = per_cpu(perfCurr, cpu)[i];
+			if (delta < 0)
+				delta *= -1;
+			pmu_value[i] = delta;
 			count++;
 		}
 	}
@@ -346,7 +344,6 @@ static int perf_thread_set_perf_events(unsigned int cpu)
 			ev = per_cpu(pevent, cpu)[i];
 			if (ev != NULL)
 				perf_event_enable(ev);
-			per_cpu(perfCntFirst, cpu)[i] = 1;
 		} /* for all PMU counter */
 		per_cpu(perfSet, cpu) = 1;
 	} /* for perfSet */

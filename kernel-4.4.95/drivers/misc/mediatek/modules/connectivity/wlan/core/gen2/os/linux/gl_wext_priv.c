@@ -1938,6 +1938,15 @@ static WLAN_REQ_ENTRY arWlanOidReqTable[] = {
 	,
 #endif
 
+#if CFG_SUPPORT_GAMING_MODE
+	{OID_CUSTOM_GAMING_MODE,
+	 DISP_STRING("OID_CUSTOM_GAMING_MODE"),
+	 FALSE, FALSE, ENUM_OID_DRIVER_CORE, sizeof(UINT_32),
+	 NULL,
+	 (PFN_OID_HANDLER_FUNC_REQ) wlanoidSetGamingMode}
+	,
+#endif
+
 	{OID_IPC_WIFI_LOG_UI,
 	 DISP_STRING("OID_IPC_WIFI_LOG_UI"),
 	 FALSE, FALSE, ENUM_OID_DRIVER_CORE, sizeof(struct PARAM_WIFI_LOG_LEVEL_UI),
@@ -2847,6 +2856,10 @@ _priv_set_ints(IN struct net_device *prNetDev,
 	      IN struct iw_request_info *prIwReqInfo, IN union iwreq_data *prIwReqData, IN char *pcExtra)
 {
 	UINT_32 u4SubCmd, u4BufLen, u4CmdLen;
+#if !(CFG_SUPPORT_TX_POWER_BACK_OFF)
+	UINT_16 i = 0;
+	INT_32  setting[4] = {0};
+#endif
 	P_GLUE_INFO_T prGlueInfo;
 	int status = 0;
 	WLAN_STATUS rStatus = WLAN_STATUS_SUCCESS;
@@ -2866,15 +2879,12 @@ _priv_set_ints(IN struct net_device *prNetDev,
 
 	switch (u4SubCmd) {
 	case PRIV_CMD_SET_TX_POWER:
+#if !(CFG_SUPPORT_TX_POWER_BACK_OFF)
 	{
-		UINT_16 i, j;
-		INT_32  setting[4] = {0};
-
 		if (u4CmdLen > 4)
 			return -EINVAL;
 		if (copy_from_user(setting, prIwReqData->data.pointer, u4CmdLen))
 			return -EFAULT;
-#if !(CFG_SUPPORT_TX_POWER_BACK_OFF)
 		prTxpwr = &prGlueInfo->rTxPwr;
 		if (setting[0] == 0 && prIwReqData->data.length == 4 /* argc num */) {
 			/* 0 (All networks), 1 (legacy STA), 2 (Hotspot AP), 3 (P2P), 4 (BT over Wi-Fi) */
@@ -2925,7 +2935,11 @@ _priv_set_ints(IN struct net_device *prNetDev,
 					   sizeof(SET_TXPWR_CTRL_T), TRUE, FALSE, FALSE, FALSE, &u4BufLen);
 		} else
 			return -EFAULT;
+	}
 #else
+	{
+		INT_32 *setting = prIwReqData->data.pointer;
+		UINT_16 i, j;
 
 #if 0
 		DBGLOG(REQ, INFO, "Tx power num = %d\n", prIwReqData->data.length);
@@ -3020,8 +3034,8 @@ _priv_set_ints(IN struct net_device *prNetDev,
 			} while (j < 40);
 		} else
 			return -EFAULT;
-#endif
 	}
+#endif
 
 	return status;
 	default:
@@ -4550,6 +4564,7 @@ int priv_driver_ecsa(IN struct net_device *prNetDev, IN char *pcCommand, IN int 
 	return 0;
 }
 #endif
+
 int priv_support_driver_cmd(IN struct net_device *prNetDev, IN OUT struct ifreq *prReq, IN int i4Cmd)
 {
 	P_GLUE_INFO_T prGlueInfo = NULL;

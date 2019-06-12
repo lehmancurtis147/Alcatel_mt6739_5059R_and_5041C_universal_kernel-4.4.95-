@@ -53,7 +53,11 @@ MTKSTP_DBG_T *g_stp_dbg;
 #define STP_DBG_FAMILY_NAME        "STP_DBG"
 #define MAX_BIND_PROCESS    (4)
 #ifdef WMT_PLAT_ALPS
+#ifndef LOG_STP_DEBUG_DISABLE
 #define STP_DBG_AEE_EXP_API (1)
+#else
+#define STP_DBG_AEE_EXP_API (0)
+#endif
 #else
 #define STP_DBG_AEE_EXP_API (0)
 #endif
@@ -1558,13 +1562,19 @@ INT32 stp_dbg_dump_send_retry_handler(PINT8 tmp, INT32 len)
 INT32 stp_dbg_aee_send(PUINT8 aucMsg, INT32 len, INT32 cmd)
 {
 #define KBYTES (1024*sizeof(char))
+#ifndef LOG_STP_DEBUG_DISABLE
 #define L1_BUF_SIZE (32*KBYTES)
+#define PKT_MULTIPLIER 18
+#else
+#define L1_BUF_SIZE (4*KBYTES)
+#define PKT_MULTIPLIER 1
+#endif
 	INT32 ret = 0;
 
 	if (g_core_dump->count == 0) {
 		g_core_dump->compressor = stp_dbg_compressor_init("core_dump_compressor",
 								   L1_BUF_SIZE,
-								   18*g_core_dump->dmp_num*KBYTES);
+								   PKT_MULTIPLIER*g_core_dump->dmp_num*KBYTES);
 		g_core_dump->count++;
 		if (!g_core_dump->compressor) {
 			STP_DBG_ERR_FUNC("create compressor failed!\n");
@@ -2154,6 +2164,8 @@ INT32 stp_dbg_set_fw_info(PUINT8 issue_info, UINT32 len, ENUM_STP_FW_ISSUE_TYPE 
 					case 0x6797:
 					case 0x6759:
 					case 0x6758:
+					case 0x6775:
+					case 0x6771:
 						/* after gen2 fw task id*/
 						g_stp_dbg_cpupcr->fwTaskId = 11;
 						break;
@@ -2171,6 +2183,8 @@ INT32 stp_dbg_set_fw_info(PUINT8 issue_info, UINT32 len, ENUM_STP_FW_ISSUE_TYPE 
 				case 0x6797:
 				case 0x6759:
 				case 0x6758:
+				case 0x6775:
+				case 0x6771:
 					/* after gen2 fw task id*/
 					g_stp_dbg_cpupcr->fwTaskId = 4;
 					break;
@@ -2187,6 +2201,8 @@ INT32 stp_dbg_set_fw_info(PUINT8 issue_info, UINT32 len, ENUM_STP_FW_ISSUE_TYPE 
 				case 0x6797:
 				case 0x6759:
 				case 0x6758:
+				case 0x6775:
+				case 0x6771:
 					/* after gen2 fw task id*/
 					g_stp_dbg_cpupcr->fwTaskId = 5;
 					break;
@@ -2203,6 +2219,8 @@ INT32 stp_dbg_set_fw_info(PUINT8 issue_info, UINT32 len, ENUM_STP_FW_ISSUE_TYPE 
 				case 0x6797:
 				case 0x6759:
 				case 0x6758:
+				case 0x6775:
+				case 0x6771:
 					/* after gen2 fw task id*/
 					g_stp_dbg_cpupcr->fwTaskId = 12;
 					break;
@@ -2222,6 +2240,8 @@ INT32 stp_dbg_set_fw_info(PUINT8 issue_info, UINT32 len, ENUM_STP_FW_ISSUE_TYPE 
 				case 0x6797:
 				case 0x6759:
 				case 0x6758:
+				case 0x6775:
+				case 0x6771:
 					/* after gen2 fw task id*/
 					g_stp_dbg_cpupcr->fwTaskId = 9;
 					break;
@@ -2247,6 +2267,8 @@ INT32 stp_dbg_set_fw_info(PUINT8 issue_info, UINT32 len, ENUM_STP_FW_ISSUE_TYPE 
 		case 0x6797:
 		case 0x6759:
 		case 0x6758:
+		case 0x6775:
+		case 0x6771:
 			/* after gen2 fw task id*/
 			g_stp_dbg_cpupcr->fwTaskId = 9;
 			break;

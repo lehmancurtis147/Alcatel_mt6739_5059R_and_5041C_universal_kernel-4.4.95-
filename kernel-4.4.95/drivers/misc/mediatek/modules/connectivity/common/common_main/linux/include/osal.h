@@ -202,7 +202,6 @@ typedef struct _OSAL_LXOP_ {
 	OSAL_OP_DAT op;
 	OSAL_SIGNAL signal;
 	INT32 result;
-	atomic_t ref_count;
 } OSAL_OP, *P_OSAL_OP;
 
 typedef struct _OSAL_LXOP_Q {
@@ -362,7 +361,6 @@ INT32 osal_test_and_set_bit(UINT32 bitOffset, P_OSAL_BIT_OP_VAR pData);
 INT32 osal_gettimeofday(PINT32 sec, PINT32 usec);
 INT32 osal_printtimeofday(const PUINT8 prefix);
 VOID osal_get_local_time(PUINT64 sec, PULONG nsec);
-UINT64 osal_elapsed_us(UINT64 ts, ULONG usec);
 
 VOID osal_buffer_dump(const PUINT8 buf, const PUINT8 title, UINT32 len, UINT32 limit);
 
@@ -370,8 +368,6 @@ UINT32 osal_op_get_id(P_OSAL_OP pOp);
 MTK_WCN_BOOL osal_op_is_wait_for_signal(P_OSAL_OP pOp);
 VOID osal_op_raise_signal(P_OSAL_OP pOp, INT32 result);
 VOID osal_set_op_result(P_OSAL_OP pOp, INT32 result);
-VOID osal_opq_dump(const char *qName, P_OSAL_OP_Q pOpQ);
-MTK_WCN_BOOL osal_opq_has_op(P_OSAL_OP_Q pOpQ, P_OSAL_OP pOp);
 
 INT32 osal_ftrace_print(const PINT8 str, ...);
 INT32 osal_ftrace_print_ctrl(INT32 flag);

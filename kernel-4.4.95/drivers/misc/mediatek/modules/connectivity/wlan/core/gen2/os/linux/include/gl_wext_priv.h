@@ -191,6 +191,10 @@ extern VOID rlmCmd(P_GLUE_INFO_T prGlueInfo, UINT_8 *prInBuf, UINT_32 u4InBufLen
 #define OID_802_11_WSC_ASSOC_INFO                       0xFFA0CB00
 #endif
 
+#if CFG_SUPPORT_GAMING_MODE
+#define OID_CUSTOM_GAMING_MODE                          0xFFA0CC00
+#endif
+
 #if CFG_SUPPORT_NCHO
 #define CMD_NCHO_COMP_TIMEOUT			1500	/* ms */
 #define CMD_NCHO_AF_DATA_LENGTH			1040

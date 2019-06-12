@@ -52,25 +52,29 @@ UINT_8 pref5GhzLo = PREF_LO_5GHZ;
 #define CHNL_BSS_NUM_THRESOLD	100
 #define BSS_STA_CNT_THRESOLD	30
 #define SCORE_PER_AP			1
-#define ROAMING_NO_SWING_SCORE_STEP 10
+#define ROAMING_NO_SWING_SCORE_STEP             100
 #define HARD_TO_CONNECT_RSSI_THRESOLD -80
+#define MINIMUM_RSSI_2G4                        -94 /* Link speed 1Mbps need at least rssi -94dbm for 2.4G */
+#define MINIMUM_RSSI_5G                         -86 /* Link speed 6Mbps need at least rssi -86dbm for 5G */
+#define RSSI_DIFF_BETWEEN_BSS                   10 /* dbm */
+#define LOW_RSSI_FOR_5G_BAND                    -70 /* dbm */
+#define HIGH_RSSI_FOR_5G_BAND                   -60 /* dbm */
 
-#define WEIGHT_IDX_CHNL_UTIL		2
-#define WEIGHT_IDX_SNR			3
-#define WEIGHT_IDX_RSSI			4
-#define WEIGHT_IDX_SCN_MISS_CNT	2
-#define WEIGHT_IDX_PROBE_RSP		1
-#define WEIGHT_IDX_CLIENT_CNT	3
-#define WEIGHT_IDX_AP_NUM		2
-#define WEIGHT_IDX_5G_BAND		2
-#define WEIGHT_IDX_BAND_WIDTH	1
-#define WEIGHT_IDX_STBC			1
-#define WEIGHT_IDX_DEAUTH_LAST	4
-#define WEIGHT_IDX_BLACK_LIST	2
+#define WEIGHT_IDX_CHNL_UTIL                    2
+#define WEIGHT_IDX_RSSI                         2
+#define WEIGHT_IDX_SCN_MISS_CNT                 2
+#define WEIGHT_IDX_PROBE_RSP                    1
+#define WEIGHT_IDX_CLIENT_CNT                   1
+#define WEIGHT_IDX_AP_NUM                       2
+#define WEIGHT_IDX_5G_BAND                      0
+#define WEIGHT_IDX_BAND_WIDTH                   1
+#define WEIGHT_IDX_STBC                         1
+#define WEIGHT_IDX_DEAUTH_LAST                  4
+#define WEIGHT_IDX_BLACK_LIST                   2
 #if CFG_SUPPORT_RSN_SCORE
-#define WEIGHT_IDX_RSN			2
+#define WEIGHT_IDX_RSN                          2
 #endif
-#define WEIGHT_IDX_SAA	2
+#define WEIGHT_IDX_SAA                          2
 
 #define P2P_INDICATE_COMPLETE_BSS_INFO	1
 
@@ -1794,6 +1798,82 @@ BOOLEAN scanIsValidSSID(IN PUINT8 pvHeader)
 
 	return FALSE;
 }
+/* clear all ESS scan result */
+VOID scanInitEssResult(P_ADAPTER_T prAdapter)
+{
+	prAdapter->rWlanInfo.u4ScanResultEssNum = 0;
+	prAdapter->rWlanInfo.u4ScanDbgTimes1 = 0;
+	prAdapter->rWlanInfo.u4ScanDbgTimes2 = 0;
+	prAdapter->rWlanInfo.u4ScanDbgTimes3 = 0;
+	prAdapter->rWlanInfo.u4ScanDbgTimes4 = 0;
+	kalMemZero(prAdapter->rWlanInfo.arScanResultEss, sizeof(prAdapter->rWlanInfo.arScanResultEss));
+}
+/* print all ESS into log system once scan done */
+/* it is useful to log that, otherwise, we have no information to identify if hardware has seen a specific AP, */
+/* if user complained some AP were not found in scan result list */
+VOID scanLogEssResult(P_ADAPTER_T prAdapter)
+{
+#define NUMBER_SSID_PER_LINE 16
+	struct ESS_SCAN_RESULT_T *prEssResult = &prAdapter->rWlanInfo.arScanResultEss[0];
+	UINT_32 u4ResultNum = prAdapter->rWlanInfo.u4ScanResultEssNum;
+	UINT_32 u4Index = 0;
+
+	if (u4ResultNum == 0) {
+		DBGLOG(SCN, INFO, "0 Bss is found, %d, %d, %d, %d\n",
+			prAdapter->rWlanInfo.u4ScanDbgTimes1, prAdapter->rWlanInfo.u4ScanDbgTimes2,
+			prAdapter->rWlanInfo.u4ScanDbgTimes3, prAdapter->rWlanInfo.u4ScanDbgTimes4);
+		return;
+	}
+
+	DBGLOG(SCN, INFO,
+		"Total:%u/%u; %s; %s; %s; %s; %s; %s; %s; %s; %s; %s; %s; %s; %s; %s; %s; %s\n",
+		u4ResultNum, prAdapter->rWlanInfo.u4ScanResultNum,
+		prEssResult[0].aucSSID, prEssResult[1].aucSSID, prEssResult[2].aucSSID,
+		prEssResult[3].aucSSID, prEssResult[4].aucSSID, prEssResult[5].aucSSID,
+		prEssResult[6].aucSSID, prEssResult[7].aucSSID, prEssResult[8].aucSSID,
+		prEssResult[9].aucSSID, prEssResult[10].aucSSID, prEssResult[11].aucSSID,
+		prEssResult[12].aucSSID, prEssResult[13].aucSSID, prEssResult[14].aucSSID,
+		prEssResult[15].aucSSID);
+	if (u4ResultNum <= NUMBER_SSID_PER_LINE)
+		return;
+	u4ResultNum = (u4ResultNum + NUMBER_SSID_PER_LINE - 1) / NUMBER_SSID_PER_LINE;
+	for (u4Index = 1; u4Index < u4ResultNum; u4Index++) {
+		struct ESS_SCAN_RESULT_T *prEss = &prEssResult[NUMBER_SSID_PER_LINE*u4Index];
+
+		DBGLOG(SCN, INFO,
+			"%s; %s; %s; %s; %s; %s; %s; %s; %s; %s; %s; %s; %s; %s; %s; %s\n",
+			prEss[0].aucSSID,
+			prEss[1].aucSSID, prEss[2].aucSSID, prEss[3].aucSSID,
+			prEss[4].aucSSID, prEss[5].aucSSID, prEss[6].aucSSID,
+			prEss[7].aucSSID, prEss[8].aucSSID, prEss[9].aucSSID,
+			prEss[10].aucSSID, prEss[11].aucSSID, prEss[12].aucSSID,
+			prEss[13].aucSSID, prEss[14].aucSSID, prEss[15].aucSSID);
+	}
+}
+
+/* record all Scanned ESS, only one BSS was saved for each ESS, and AP who is hidden ssid was excluded. */
+/* maximum we only support record 64 ESSes */
+static VOID scanAddEssResult(P_ADAPTER_T prAdapter, IN P_BSS_DESC_T prBssDesc)
+{
+	struct ESS_SCAN_RESULT_T *prEssResult = &prAdapter->rWlanInfo.arScanResultEss[0];
+	UINT_32 u4Index = 0;
+
+	if (prBssDesc->fgIsHiddenSSID)
+		return;
+	if (prAdapter->rWlanInfo.u4ScanResultEssNum >= CFG_MAX_NUM_BSS_LIST)
+		return;
+	for (; u4Index < prAdapter->rWlanInfo.u4ScanResultEssNum; u4Index++) {
+		if (EQUAL_SSID(prEssResult[u4Index].aucSSID, (UINT_8)prEssResult[u4Index].u2SSIDLen,
+			prBssDesc->aucSSID, prBssDesc->ucSSIDLen))
+			return;
+	}
+
+	COPY_SSID(prEssResult[u4Index].aucSSID, prEssResult[u4Index].u2SSIDLen,
+		prBssDesc->aucSSID, prBssDesc->ucSSIDLen);
+	COPY_MAC_ADDR(prEssResult[u4Index].aucBSSID, prBssDesc->aucBSSID);
+	prAdapter->rWlanInfo.u4ScanResultEssNum++;
+}
+
 /*----------------------------------------------------------------------------*/
 /*!
 * @brief Convert the Beacon or ProbeResp Frame in SW_RFB_T to scan result for query
@@ -1836,6 +1916,7 @@ WLAN_STATUS scanAddScanResult(IN P_ADAPTER_T prAdapter, IN P_BSS_DESC_T prBssDes
 
 	if (prBssDesc->eBSSType == BSS_TYPE_P2P_DEVICE) {
 		/* NOTE(Kevin): Not supported by WZC(TBD) */
+		DBGLOG(SCN, INFO, "Bss Desc type is P2P\n");
 		return WLAN_STATUS_FAILURE;
 	}
 
@@ -1907,6 +1988,7 @@ WLAN_STATUS scanAddScanResult(IN P_ADAPTER_T prAdapter, IN P_BSS_DESC_T prBssDes
 	}
 
 	if (scanIsValidSSID((PUINT_8) prSwRfb->pvHeader)) {
+		scanAddEssResult(prAdapter, prBssDesc);
 		kalIndicateBssInfo(prAdapter->prGlueInfo,
 		(PUINT_8) prSwRfb->pvHeader,
 		prSwRfb->u2PacketLen, prBssDesc->ucChannelNum, RCPI_TO_dBm(prBssDesc->ucRCPI));
@@ -2125,7 +2207,7 @@ static UINT_8 scanGetChannel(P_HIF_RX_HEADER_T prHifRxHdr, PUINT_8 pucIE, UINT_1
 	UINT_8 ucDsChannel = 0;
 	UINT_8 ucHtChannel = 0;
 	UINT_8 ucHwChannel = HIF_RX_HDR_GET_CHNL_NUM(prHifRxHdr);
-	UINT_16 u2Offset = 0;
+	UINT_8 u2Offset = 0;
 	ENUM_BAND_T eBand = HIF_RX_HDR_GET_RF_BAND(prHifRxHdr);
 
 	IE_FOR_EACH(pucIE, u2IELen, u2Offset) {
@@ -2245,7 +2327,7 @@ VOID scanCollectBeaconReport(IN P_ADAPTER_T prAdapter, PUINT_8 pucIEBuf,
 	struct RM_MEASURE_REPORT_ENTRY *prReportEntry = NULL;
 	UINT_16 u2RemainLen = 0;
 	BOOLEAN fgValidChannel = FALSE;
-	UINT_16 u2IeSize = 0;
+	UINT_8 ucIeSize = 0;
 
 	if (!EQUAL_MAC_ADDR(prBcnReq->aucBssid, "\xff\xff\xff\xff\xff\xff") &&
 		!EQUAL_MAC_ADDR(prBcnReq->aucBssid, pucBssid)) {
@@ -2254,6 +2336,7 @@ VOID scanCollectBeaconReport(IN P_ADAPTER_T prAdapter, PUINT_8 pucIEBuf,
 	}
 
 	pucIE = pucIEBuf;
+
 	/* Step1: parsing Beacon Request sub element field to get Report controlling information */
 	/* if match the channel that is in fixed field, no need to check AP channel report */
 	if (prBcnReq->ucChannel == prRepParams->ucChannel)
@@ -2262,8 +2345,8 @@ VOID scanCollectBeaconReport(IN P_ADAPTER_T prAdapter, PUINT_8 pucIEBuf,
 	u2RemainLen = prRmReq->prCurrMeasElem->ucLength - 3 - OFFSET_OF(RM_BCN_REQ_T, aucSubElements);
 	pucSubIE = &prBcnReq->aucSubElements[0];
 	while (u2RemainLen > 0) {
-		u2IeSize = IE_SIZE(pucSubIE);
-		if (u2IeSize > u2RemainLen)
+		ucIeSize = IE_SIZE(pucSubIE);
+		if (ucIeSize > u2RemainLen)
 			break;
 		switch (pucSubIE[0]) {
 		case 0: /* checking if SSID is matched */
@@ -2302,7 +2385,7 @@ VOID scanCollectBeaconReport(IN P_ADAPTER_T prAdapter, PUINT_8 pucIEBuf,
 			if (fgValidChannel)
 				break;
 			/* try to match with AP channel report */
-			while (ucNumChannels < u2IeSize) {
+			while (ucNumChannels < ucIeSize) {
 				if (prRepParams->ucChannel == pucSubIE[ucNumChannels]) {
 					fgValidChannel = TRUE;
 					break;
@@ -2311,8 +2394,8 @@ VOID scanCollectBeaconReport(IN P_ADAPTER_T prAdapter, PUINT_8 pucIEBuf,
 			}
 		}
 		}
-		u2RemainLen -= u2IeSize;
-		pucSubIE += u2IeSize;
+		u2RemainLen -= ucIeSize;
+		pucSubIE += ucIeSize;
 	}
 	if (!fgValidChannel && prBcnReq->ucChannel > 0 && prBcnReq->ucChannel < 255) {
 		DBGLOG(SCN, INFO, "channel %d, valid %d\n", prBcnReq->ucChannel, fgValidChannel);
@@ -2343,7 +2426,7 @@ VOID scanCollectBeaconReport(IN P_ADAPTER_T prAdapter, PUINT_8 pucIEBuf,
 			break;
 		prBcnReport = NULL;
 	}
-	if (!prBcnReport) {/* not found a entry in collected report link */
+	if (!prBcnReport) { /* not found a entry in collected report link */
 		LINK_REMOVE_HEAD(&prRmRep->rFreeReportLink, prReportEntry, struct RM_MEASURE_REPORT_ENTRY *);
 		if (!prReportEntry) {/* not found a entry in free report link */
 			prReportEntry = kalMemAlloc(sizeof(*prReportEntry), VIR_MEM_TYPE);
@@ -2472,6 +2555,7 @@ static WLAN_STATUS __scanProcessBeaconAndProbeResp(IN P_ADAPTER_T prAdapter, IN 
 #ifndef _lint
 		ASSERT(0);
 #endif /* _lint */
+		DBGLOG(SCN, ERROR, "Ignore invalid Beacon Frame\n");
 		return rStatus;
 	}
 #if CFG_SLT_SUPPORT
@@ -2498,6 +2582,7 @@ static WLAN_STATUS __scanProcessBeaconAndProbeResp(IN P_ADAPTER_T prAdapter, IN 
 
 	/* 4 <1> Parse and add into BSS_DESC_T */
 	prBssDesc = scanAddToBssDesc(prAdapter, prSwRfb);
+	prAdapter->rWlanInfo.u4ScanDbgTimes1++;
 
 	if (prBssDesc) {
 		/*Full2Partial at here, we should save channel info*/
@@ -2595,9 +2680,11 @@ static WLAN_STATUS __scanProcessBeaconAndProbeResp(IN P_ADAPTER_T prAdapter, IN 
 			      (prSwRfb->u2PacketLen - prSwRfb->u2HeaderLen) -
 			      (UINT_16) (OFFSET_OF(WLAN_BEACON_FRAME_BODY_T, aucInfoElem[0])));
 
+		prAdapter->rWlanInfo.u4ScanDbgTimes2++;
 		/* 4 <3> Send SW_RFB_T to HIF when we perform SCAN for HOST */
 		if (prBssDesc->eBSSType == BSS_TYPE_INFRASTRUCTURE || prBssDesc->eBSSType == BSS_TYPE_IBSS) {
 			/* for AIS, send to host */
+			prAdapter->rWlanInfo.u4ScanDbgTimes3++;
 			if (prConnSettings->fgIsScanReqIssued || prAdapter->rWifiVar.rScanInfo.fgNloScanning
 #if CFG_SUPPORT_SCN_PSCN
 			|| prAdapter->rWifiVar.rScanInfo.fgPscnOngoing
@@ -2606,6 +2693,7 @@ static WLAN_STATUS __scanProcessBeaconAndProbeResp(IN P_ADAPTER_T prAdapter, IN 
 				BOOLEAN fgAddToScanResult;
 
 				fgAddToScanResult = scanCheckBssIsLegal(prAdapter, prBssDesc);
+				prAdapter->rWlanInfo.u4ScanDbgTimes4++;
 
 				if (fgAddToScanResult == TRUE)
 					rStatus = scanAddScanResult(prAdapter, prBssDesc, prSwRfb);
@@ -3419,7 +3507,7 @@ VOID scanGetCurrentEssChnlList(P_ADAPTER_T prAdapter)
 
 #define CALCULATE_SCORE_BY_STBC(prAdapter, prBssDesc) \
 	(WEIGHT_IDX_STBC * \
-	((prBssDesc->fgMultiAnttenaAndSTBC && prAdapter->rWifiVar.ucRxStbc) ? BSS_FULL_SCORE:0))
+	(prBssDesc->fgMultiAnttenaAndSTBC ? BSS_FULL_SCORE:0))
 
 #define CALCULATE_SCORE_BY_DEAUTH(prBssDesc) \
 	(WEIGHT_IDX_DEAUTH_LAST * (prBssDesc->fgDeauthLastTime ? 0:BSS_FULL_SCORE))
@@ -3429,7 +3517,6 @@ VOID scanGetCurrentEssChnlList(P_ADAPTER_T prAdapter)
 	(WEIGHT_IDX_RSN * (prBssDesc->fgIsRSNSuitableBss ? BSS_FULL_SCORE:0))
 #endif
 
-#if 0/* we don't take it into account now */
 /* Channel Utilization: weight index will be */
 static UINT_16 scanCalculateScoreByChnlInfo(
 	P_AIS_SPECIFIC_BSS_INFO_T prAisSpecificBssInfo, UINT_8 ucChannel)
@@ -3453,7 +3540,7 @@ static UINT_16 scanCalculateScoreByChnlInfo(
 			if (prEssChnlInfo[i].ucApNum <= CHNL_BSS_NUM_THRESOLD)
 				u2Score += WEIGHT_IDX_AP_NUM *
 					(BSS_FULL_SCORE - prEssChnlInfo[i].ucApNum * SCORE_PER_AP);
-			DBGLOG(SCN, INFO, "channel %d, AP num %d\n", ucChannel, prEssChnlInfo[i].ucApNum);
+			DBGLOG(SCN, TRACE, "channel %d, AP num %d\n", ucChannel, prEssChnlInfo[i].ucApNum);
 			break;
 		}
 	}
@@ -3463,53 +3550,19 @@ static UINT_16 scanCalculateScoreByChnlInfo(
 static UINT_16 scanCalculateScoreByBandwidth(P_ADAPTER_T prAdapter, P_BSS_DESC_T prBssDesc)
 {
 	UINT_16 u2Score = 0;
-	ENUM_CHANNEL_WIDTH_T eChannelWidth = prBssDesc->eChannelWidth;
-	UINT_8 ucSta5GBW = prAdapter->rWifiVar.ucSta5gBandwidth;
-	UINT_8 ucSta2GBW = prAdapter->rWifiVar.ucSta2gBandwidth;
-	UINT_8 ucStaBW = prAdapter->rWifiVar.ucStaBandwidth;
-
-	if (prBssDesc->fgIsVHTPresent && prAdapter->fgEnable5GBand) {
-		if (ucSta5GBW > ucStaBW)
-			ucSta5GBW = ucStaBW;
-		switch (ucSta5GBW) {
-		case MAX_BW_20MHZ:
-		case MAX_BW_40MHZ:
-			eChannelWidth = CW_20_40MHZ;
-			break;
-		case MAX_BW_80MHZ:
-			eChannelWidth = CW_80MHZ;
-			break;
-		}
-		switch (eChannelWidth) {
-		case CW_20_40MHZ:
-			u2Score = 60;
-			break;
-		case CW_80MHZ:
-			u2Score = 80;
-			break;
-		case CW_160MHZ:
-		case CW_80P80MHZ:
-			u2Score = BSS_FULL_SCORE;
-			break;
-		}
-	} else if (prBssDesc->fgIsHTPresent) {
+	if (prBssDesc->fgIsHTPresent) {
 		if (prBssDesc->eBand == BAND_2G4) {
-			if (ucSta2GBW > ucStaBW)
-				ucSta2GBW = ucStaBW;
-			u2Score = (prBssDesc->eSco == 0 || ucSta2GBW == MAX_BW_20MHZ) ? 40:60;
+			u2Score = (prBssDesc->eSco == 0) ? 60:100;
 		} else if (prBssDesc->eBand == BAND_5G) {
-			if (ucSta5GBW > ucStaBW)
-				ucSta5GBW = ucStaBW;
-			u2Score = (prBssDesc->eSco == 0 || ucSta5GBW == MAX_BW_20MHZ) ? 40:60;
+			u2Score = (prBssDesc->eSco == 0) ? 60:100;
 		}
 	} else if (prBssDesc->u2BSSBasicRateSet & RATE_SET_OFDM)
 		u2Score = 20;
 	else
 		u2Score = 10;
-	/*DBGLOG(SCN, INFO, "eCW %d, vht %d, ht %d, eband %d, esco %d, u2Score %d\n",
-	*	eChannelWidth, prBssDesc->fgIsVHTPresent,
-	*	prBssDesc->fgIsHTPresent, prBssDesc->eBand, prBssDesc->eSco, u2Score);
-	*/
+	DBGLOG(SCN, TRACE, "ht %d, eband %d, esco %d, u2Score %d\n",
+		prBssDesc->fgIsHTPresent, prBssDesc->eBand, prBssDesc->eSco, u2Score);
+
 	return u2Score * WEIGHT_IDX_BAND_WIDTH;
 }
 
@@ -3517,36 +3570,88 @@ static UINT_16 scanCalculateScoreByClientCnt(P_BSS_DESC_T prBssDesc)
 {
 	UINT_16 u2Score = 0;
 
-	if (!prBssDesc->fgExsitBssLoadIE || prBssDesc->u2StaCnt > BSS_STA_CNT_THRESOLD) {
-		DBGLOG(SCN, TRACE, "exist bss load %d, sta cnt %d\n",
+	DBGLOG(SCN, TRACE, "Exist bss load %d, sta cnt %d\n",
 			prBssDesc->fgExsitBssLoadIE, prBssDesc->u2StaCnt);
+
+	if (!prBssDesc->fgExsitBssLoadIE || prBssDesc->u2StaCnt > BSS_STA_CNT_THRESOLD)
 		return 0;
-	}
+
 	u2Score = BSS_FULL_SCORE - prBssDesc->u2StaCnt * 3;
 	return u2Score * WEIGHT_IDX_CLIENT_CNT;
 }
 
-static UINT_16 scanCalculateScoreBySnrRssi(P_BSS_DESC_T prBssDesc)
+
+static BOOLEAN scanNeedReplaceCandidate(P_ADAPTER_T prAdapter, P_BSS_DESC_T prCandBss, P_BSS_DESC_T prCurrBss,
+	UINT_16 u2CandScore, UINT_16 u2CurrScore)
 {
-	UINT_16 u2Score = 0;
-	INT_8 cRssi = RCPI_TO_dBm(prBssDesc->ucRCPI);
-	/*UINT_8 ucSNR = prBssDesc->ucSNR;*/
+	UINT_32 u4UpdateIdx = prAdapter->rWifiVar.rScanInfo.u4ScanUpdateIdx;
+	UINT_16 u2CandMiss = u4UpdateIdx - prCandBss->u4UpdateIdx;
+	UINT_16 u2CurrMiss = u4UpdateIdx - prCurrBss->u4UpdateIdx;
+	INT_8 cCandRssi = RCPI_TO_dBm(prCandBss->ucRCPI);
+	INT_8 cCurrRssi = RCPI_TO_dBm(prCurrBss->ucRCPI);
 
-	DBGLOG(SCN, INFO, "cRSSI %d\n", cRssi);
-	if (cRssi >= -20)
-		u2Score = 60;
-	else if (cRssi <= -70 && cRssi > HARD_TO_CONNECT_RSSI_THRESOLD)
-		u2Score = 20;
-	else if (cRssi <= HARD_TO_CONNECT_RSSI_THRESOLD)
-		u2Score = 0;
-	else
-		u2Score = 8 * ((cRssi + 69)/5) + 28;
-	u2Score *= WEIGHT_IDX_RSSI;
+	/* 1. No need check score case */
+	/* 1.1 Scan missing count of CurrBss is too more, but Candidate is suitable, don't replace */
+	if (u2CurrMiss > 2 && u2CurrMiss > u2CandMiss) {
+		DBGLOG(SCN, INFO, "Scan Miss count of CurrBss > 2, and Candidate <= 2\n");
+		return FALSE;
+	}
+	/* 1.2 Scan missing count of Candidate is too more, but CurrBss is suitable, replace */
+	if (u2CandMiss > 2 && u2CandMiss > u2CurrMiss) {
+		DBGLOG(SCN, INFO, "Scan Miss count of Candidate > 2, and CurrBss <= 2\n");
+		return TRUE;
+	}
 
-	/* TODO: we don't know the valid value for SNR, so don't take it into account */
-	return u2Score;
+	/* 1.3 Hard connecting RSSI check */
+	if ((prCurrBss->eBand == BAND_5G && cCurrRssi < MINIMUM_RSSI_5G) ||
+		(prCurrBss->eBand == BAND_2G4 && cCurrRssi < MINIMUM_RSSI_2G4))
+		return FALSE;
+	else if ((prCandBss->eBand == BAND_5G && cCandRssi < MINIMUM_RSSI_5G) ||
+		(prCandBss->eBand == BAND_2G4 && cCandRssi < MINIMUM_RSSI_2G4))
+		return TRUE;
+
+	/* 1.4 prefer to select 5G Bss if Rssi of a 5G band BSS is >= -60dbm */
+	if (prCandBss->eBand != prCurrBss->eBand) {
+		if (prCurrBss->eBand == BAND_5G) {
+			/* Current AP is 5G, replace candidate AP of current AP is good. */
+			if (cCurrRssi >= HIGH_RSSI_FOR_5G_BAND ||
+				(cCandRssi < HIGH_RSSI_FOR_5G_BAND && cCurrRssi > LOW_RSSI_FOR_5G_BAND))
+				return TRUE;
+			else if (cCurrRssi < LOW_RSSI_FOR_5G_BAND && cCurrRssi < cCandRssi)
+				return FALSE;
+		} else {
+			/* Candidate AP is 5G, don't replace it if it's good enough. */
+			if (cCandRssi >= HIGH_RSSI_FOR_5G_BAND ||
+				(cCurrRssi < HIGH_RSSI_FOR_5G_BAND && cCandRssi > LOW_RSSI_FOR_5G_BAND))
+				return FALSE;
+			else if (cCandRssi < LOW_RSSI_FOR_5G_BAND && cCandRssi < cCurrRssi)
+				return TRUE;
+		}
+	}
+
+	/* 1.5 RSSI of Current Bss is lower than Candidate, don't replace
+	** If the lower Rssi is greater than -59dbm, then no need check the difference
+	** Otherwise, if difference is greater than 10dbm, select the good RSSI
+	*/
+	if (cCandRssi - cCurrRssi >= RSSI_DIFF_BETWEEN_BSS)
+		return FALSE;
+	/* RSSI of Candidate Bss is lower than Current, replace */
+	if (cCurrRssi - cCandRssi >= RSSI_DIFF_BETWEEN_BSS)
+		return TRUE;
+
+	/* 2. Check Score */
+	/* 2.1 Cases that no need to replace candidate */
+	if (prCandBss->fgIsConnected) {
+		if ((u2CandScore + ROAMING_NO_SWING_SCORE_STEP) >= u2CurrScore)
+			return FALSE;
+	} else if (prCurrBss->fgIsConnected) {
+		if (u2CandScore >= (u2CurrScore + ROAMING_NO_SWING_SCORE_STEP))
+			return FALSE;
+	} else if (u2CandScore >= u2CurrScore)
+		return FALSE;
+	/* 2.2 other cases, replace candidate */
+	return TRUE;
 }
-#endif
 static BOOLEAN scanSanityCheckBssDesc(P_ADAPTER_T prAdapter,
 	P_BSS_DESC_T prBssDesc, ENUM_BAND_T eBand, UINT_8 ucChannel, BOOLEAN fgIsFixedChannel)
 {
@@ -3597,8 +3702,10 @@ static UINT_16 scanCalculateScoreByRssi(P_BSS_DESC_T prBssDesc)
 	else if (cRssi >= -70)
 		u2Score = 50;
 	else if (cRssi >= -77)
+		u2Score = 15;
+	else if (cRssi >= -88)
 		u2Score = 10;
-	else if (cRssi <= -88 && cRssi > -100)
+	else if (cRssi < -88 && cRssi > -100)
 		u2Score = 5;
 	else if (cRssi <= -100)
 		u2Score = 0;
@@ -3688,9 +3795,6 @@ P_BSS_DESC_T scanSearchBssDescByScoreForAis(P_ADAPTER_T prAdapter)
 	ENUM_BAND_T eBand = BAND_2G4;
 	UINT_8 ucChannel = 0;
 	INT_8 cRssi = -128;
-#if CFG_SELECT_BSS_BASE_ON_RSSI
-	INT_8 cMaxRssi = HARD_TO_CONNECT_RSSI_THRESOLD;
-#endif
 
 	if (!prAdapter) {
 		DBGLOG(SCN, ERROR, "prAdapter is NULL!\n");
@@ -3706,25 +3810,9 @@ P_BSS_DESC_T scanSearchBssDescByScoreForAis(P_ADAPTER_T prAdapter)
 	fgIsFixedChannel = cnmAisInfraChannelFixed(prAdapter, &eBand, &ucChannel);
 #endif
 	aisRemoveTimeoutBlacklist(prAdapter);
-#if CFG_SELECT_BSS_BASE_ON_RSSI
-	if (prConnSettings->eConnectionPolicy != CONNECT_BY_BSSID) {
-		LINK_FOR_EACH_ENTRY(prBssDesc, prEssLink, rLinkEntryEss, BSS_DESC_T) {
-			if (!scanSanityCheckBssDesc(prAdapter, prBssDesc, eBand, ucChannel, fgIsFixedChannel))
-				continue;
-
-			cRssi = RCPI_TO_dBm(prBssDesc->ucRCPI);
-			if (cRssi > cMaxRssi)
-				cMaxRssi = cRssi;
-		}
-	}
-	DBGLOG(SCN, INFO, "Max RSSI %d, ConnectionPolicy =%d\n",
-		cMaxRssi,
-		prConnSettings->eConnectionPolicy);
-#else
 	DBGLOG(SCN, INFO, "%s: ConnectionPolicy = %d\n",
 		__func__,
 		prConnSettings->eConnectionPolicy);
-#endif
 
 
 try_again:
@@ -3769,34 +3857,13 @@ try_again:
 
 		cRssi = RCPI_TO_dBm(prBssDesc->ucRCPI);
 
-#if CFG_SELECT_BSS_BASE_ON_RSSI
-		if (cMaxRssi >= -55) {
-			if (cRssi < -55)
-				continue;
-		} else if (cMaxRssi >= -65) {
-			if (cRssi < -65)
-				continue;
-		} else if (cMaxRssi >= -77) {
-			if (cRssi < -77)
-				continue;
-		} else if (cMaxRssi >= -88) {
-			if (cRssi < -88)
-				continue;
-		} else if (cMaxRssi >= -100) {
-			if (cRssi < -100)
-				continue;
-		}
-#endif
 		if (!scanSanityCheckBssDesc(prAdapter, prBssDesc, eBand, ucChannel, fgIsFixedChannel))
 			continue;
 
-#if 0	/* currently, we don't take these factors into account */
 		u2ScoreBandwidth = scanCalculateScoreByBandwidth(prAdapter, prBssDesc);
 		u2ScoreStaCnt = scanCalculateScoreByClientCnt(prBssDesc);
 		u2ScoreSTBC = CALCULATE_SCORE_BY_STBC(prAdapter, prBssDesc);
 		u2ScoreChnlInfo = scanCalculateScoreByChnlInfo(prAisSpecificBssInfo, prBssDesc->ucChannelNum);
-		u2ScoreSnrRssi = scanCalculateScoreBySnrRssi(prBssDesc);
-#endif
 		u2ScoreSnrRssi = scanCalculateScoreByRssi(prBssDesc);
 		u2ScoreDeauth = CALCULATE_SCORE_BY_DEAUTH(prBssDesc);
 		u2ScoreProbeRsp = CALCULATE_SCORE_BY_PROBE_RSP(prBssDesc);
@@ -3812,44 +3879,16 @@ try_again:
 			u2BlackListScore + u2ScoreRSN + u2ScoreSaa;
 
 		DBGLOG(SCN, INFO,
-			"%pM cRSSI[%d] Score, Total %d: DE[%d], PR[%d], SM[%d], SR[%d], BD[%d], RSN[%d], SAA[%d]\n",
-			prBssDesc->aucBSSID, cRssi, u2ScoreTotal, u2ScoreDeauth,
-			u2ScoreProbeRsp, u2ScoreScanMiss, u2ScoreSnrRssi,
-			u2ScoreBand, u2ScoreRSN, u2ScoreSaa);
-		/*if (cRssi < HARD_TO_CONNECT_RSSI_THRESOLD) {
-		*	if (!prCandBssDescForLowRssi) {
-		*		prCandBssDescForLowRssi = prBssDesc;
-		*		u2CandBssScoreForLowRssi = u2ScoreTotal;
-		*	} else if (prCandBssDescForLowRssi->fgIsConnected) {
-		*		if ((u2CandBssScoreForLowRssi + ROAMING_NO_SWING_SCORE_STEP) < u2ScoreTotal) {
-		*			prCandBssDescForLowRssi = prBssDesc;
-		*			u2CandBssScoreForLowRssi = u2ScoreTotal;
-		*		}
-		*	} else if (prBssDesc->fgIsConnected) {
-		*		if (u2CandBssScoreForLowRssi > (u2ScoreTotal + ROAMING_NO_SWING_SCORE_STEP)) {
-		*			prCandBssDescForLowRssi = prBssDesc;
-		*			u2CandBssScoreForLowRssi = u2ScoreTotal;
-		*		}
-		*	} else if (u2CandBssScoreForLowRssi < u2ScoreTotal) {
-		*		prCandBssDescForLowRssi = prBssDesc;
-		*		u2CandBssScoreForLowRssi = u2ScoreTotal;
-		*	}
-		*} else if (!prCandBssDesc) {
-		*/
-		if (!prCandBssDesc) {
-			prCandBssDesc = prBssDesc;
-			u2CandBssScore = u2ScoreTotal;
-		} else if (prCandBssDesc->fgIsConnected) {
-			if ((u2CandBssScore + ROAMING_NO_SWING_SCORE_STEP) < u2ScoreTotal) {
-				prCandBssDesc = prBssDesc;
-				u2CandBssScore = u2ScoreTotal;
-			}
-		} else if (prBssDesc->fgIsConnected) {
-			if (u2CandBssScore <= (u2ScoreTotal + ROAMING_NO_SWING_SCORE_STEP)) {
-				prCandBssDesc = prBssDesc;
-				u2CandBssScore = u2ScoreTotal;
-			}
-		} else if (u2CandBssScore < u2ScoreTotal) {
+			"%pM cRSSI[%d] 5G[%d] Score, Total %d ",
+			prBssDesc->aucBSSID, cRssi, (prBssDesc->eBand == BAND_5G ? 1 : 0), u2ScoreTotal);
+
+		DBGLOG(SCN, INFO,
+			"DE[%d], PR[%d], SM[%d], SR[%d], BA[%d] RSN[%d], SAA[%d], BW[%d], CN[%d], ST[%d], CI[%d]\n",
+			u2ScoreDeauth, u2ScoreProbeRsp, u2ScoreScanMiss, u2ScoreSnrRssi, u2BlackListScore,
+			u2ScoreRSN, u2ScoreSaa, u2ScoreBandwidth, u2ScoreStaCnt, u2ScoreSTBC, u2ScoreChnlInfo);
+
+		if (!prCandBssDesc ||
+			scanNeedReplaceCandidate(prAdapter, prCandBssDesc, prBssDesc, u2CandBssScore, u2ScoreTotal)) {
 			prCandBssDesc = prBssDesc;
 			u2CandBssScore = u2ScoreTotal;
 		}
@@ -3868,8 +3907,9 @@ try_again:
 				prConnSettings->aucBSSID, prEssLink->u4NumElem, ucChannel);
 		else
 			DBGLOG(SCN, INFO,
-				"Selected %pM, Score %d when find %s, %pM in %d BSSes, fix channel %d.\n",
-				prCandBssDesc->aucBSSID, u2CandBssScore,
+				"Selected %pM, cRSSI[%d] 5G[%d] Score %d when find %s, %pM in %d BSSes, fix channel %d.\n",
+				prCandBssDesc->aucBSSID, cRssi = RCPI_TO_dBm(prCandBssDesc->ucRCPI),
+				(prCandBssDesc->eBand == BAND_5G ? 1 : 0), u2CandBssScore,
 				prConnSettings->aucSSID, prConnSettings->aucBSSID, prEssLink->u4NumElem, ucChannel);
 		return prCandBssDesc;
 	} else if (prCandBssDescForLowRssi) {

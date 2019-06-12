@@ -23,8 +23,8 @@
 #include "fm_config.h"
 
 struct fm_cust_cfg fm_config;
-static unsigned short g_fm_chipid;
-static enum fm_cfg_chip_type g_fm_chip_type = FM_CHIP_TYPE_MAX;
+unsigned short g_fm_chipid;
+enum fm_cfg_chip_type g_fm_chip_type = FM_CHIP_TYPE_MAX;
 
 #define FM_CUST_CFG_PATH "fm_cust.cfg"
 

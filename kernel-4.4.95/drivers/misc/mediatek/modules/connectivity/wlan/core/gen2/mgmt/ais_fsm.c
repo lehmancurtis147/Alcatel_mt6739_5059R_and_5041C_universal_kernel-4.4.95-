@@ -1360,6 +1360,17 @@ VOID aisFsmSteps(IN P_ADAPTER_T prAdapter, ENUM_AIS_STATE_T eNextState)
 					if ((prBssDesc) && (prBssDesc->fgIsConnected))
 						ASSERT(EQUAL_MAC_ADDR(prBssDesc->aucBSSID, prAisBssInfo->aucBSSID));
 #endif /* DBG */
+					if (prAisFsmInfo->fgTargetChnlScanIssued) {
+						/* if target channel scan has issued,
+						** and no roaming target is found, need to do full scan again
+						*/
+						DBGLOG(AIS, INFO,
+							"[Roaming] No target found, try to full scan again\n");
+						prAisFsmInfo->fgTargetChnlScanIssued = FALSE;
+						eNextState = AIS_STATE_LOOKING_FOR;
+						fgIsTransition = TRUE;
+						break;
+					}
 					/* We already associated with it, go back to NORMAL_TR */
 					/* TODO(Kevin): Roaming Fail */
 #if CFG_SUPPORT_ROAMING
@@ -1441,6 +1452,9 @@ VOID aisFsmSteps(IN P_ADAPTER_T prAdapter, ENUM_AIS_STATE_T eNextState)
 						prAisBssInfo->prStaRecOfAP->fgIsTxAllowed = FALSE;
 					/* Transit to channel acquire */
 					eNextState = AIS_STATE_REQ_CHANNEL_JOIN;
+					/* Find target AP to roaming and set fgTargetChnlScanIssued to false */
+					if (prAisFsmInfo->fgTargetChnlScanIssued)
+						prAisFsmInfo->fgTargetChnlScanIssued = FALSE;
 					fgIsTransition = TRUE;
 				}
 			}
@@ -1657,6 +1671,27 @@ VOID aisFsmSteps(IN P_ADAPTER_T prAdapter, ENUM_AIS_STATE_T eNextState)
 				DBGLOG(AIS, INFO, "Looking %s in %d channels, first 5 channels %d %d %d %d %d\n",
 					prConnSettings->aucSSID, ucChnlNum, pucChnl[0], pucChnl[1], pucChnl[2],
 					pucChnl[3], pucChnl[4]);
+			} else if (prAisBssInfo->eConnectionState == PARAM_MEDIA_STATE_CONNECTED &&
+					prAdapter->rWifiVar.rRoamingInfo.eCurrentState == ROAMING_STATE_DISCOVERY &&
+					prAisFsmInfo->fgTargetChnlScanIssued) {
+				P_RF_CHANNEL_INFO_T prChnlInfo = &prScanReqMsg->arChnlInfoList[0];
+				UINT_8 ucChannelNum = 0;
+				UINT_8 i = 0;
+
+				for (i = 0; i < prAdapter->rWifiVar.rAisSpecificBssInfo.ucCurEssChnlInfoNum; i++) {
+					ucChannelNum =
+						prAdapter->rWifiVar.rAisSpecificBssInfo.arCurEssChnlInfo[i].ucChannel;
+					if ((ucChannelNum >= 1) && (ucChannelNum <= 14))
+						prChnlInfo[i].eBand = BAND_2G4;
+					else
+						prChnlInfo[i].eBand = BAND_5G;
+					prChnlInfo[i].ucChannelNum = ucChannelNum;
+				}
+				prScanReqMsg->ucChannelListNum =
+					prAdapter->rWifiVar.rAisSpecificBssInfo.ucCurEssChnlInfoNum;
+				prScanReqMsg->eScanChannel = SCAN_CHANNEL_SPECIFIED;
+				DBGLOG(AIS, INFO,
+					"[Roaming] Target Scan: ucChannelListNum=%d\n", prScanReqMsg->ucChannelListNum);
 			} else if ((prAdapter->prGlueInfo != NULL) &&
 				(prAdapter->prGlueInfo->puScanChannel != NULL)) {
 				/* handle partial scan channel info */
@@ -2812,7 +2847,6 @@ VOID aisFsmRunEventJoinComplete(IN P_ADAPTER_T prAdapter, IN P_MSG_HDR_T prMsgHd
 									     WLAN_STATUS_JOIN_FAILURE,
 									     (PVOID)&u2StatusCode,
 									     sizeof(u2StatusCode));
-
 						prAisBssInfo->eConnectionStateIndicated =
 							PARAM_MEDIA_STATE_DISCONNECTED;
 						eNextState = AIS_STATE_IDLE;
@@ -4328,6 +4362,7 @@ VOID aisFsmScanRequest(IN P_ADAPTER_T prAdapter, IN P_PARAM_SSID_T prSsid, IN PU
 		prAisFsmInfo->eCurrentState, prConnSettings->fgIsScanReqIssued);
 	if (!prConnSettings->fgIsScanReqIssued) {
 		prConnSettings->fgIsScanReqIssued = TRUE;
+		scanInitEssResult(prAdapter);
 
 		if (prSsid == NULL) {
 			prAisFsmInfo->ucScanSSIDLen = 0;
@@ -4408,6 +4443,7 @@ VOID aisFsmScanRequestAdv(IN P_ADAPTER_T prAdapter, IN UINT_8 ucSsidNum, IN P_PA
 
 	if (!prConnSettings->fgIsScanReqIssued) {
 		prConnSettings->fgIsScanReqIssued = TRUE;
+		scanInitEssResult(prAdapter);
 
 		if (ucSsidNum == 0)
 			prAisFsmInfo->ucScanSSIDNum = 0;
@@ -4797,9 +4833,10 @@ VOID aisFsmRunEventRoamingDiscovery(IN P_ADAPTER_T prAdapter, UINT_32 u4ReqScan)
 	}
 
 	if (prAisFsmInfo->eCurrentState == AIS_STATE_NORMAL_TR && prAisFsmInfo->fgIsInfraChannelFinished == TRUE) {
-		if (eAisRequest == AIS_REQUEST_ROAMING_SEARCH)
+		if (eAisRequest == AIS_REQUEST_ROAMING_SEARCH) {
+			prAisFsmInfo->fgTargetChnlScanIssued = TRUE;
 			aisFsmSteps(prAdapter, AIS_STATE_LOOKING_FOR);
-		else
+		} else
 			aisFsmSteps(prAdapter, AIS_STATE_COLLECT_ESS_INFO);
 	} else {
 		aisFsmIsRequestPending(prAdapter, AIS_REQUEST_ROAMING_SEARCH, TRUE);

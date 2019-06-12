@@ -212,9 +212,6 @@ const UINT_32 mtk_cipher_suites[] = {
 
 /* NIC interface name */
 #define NIC_INF_NAME    "wlan%d"	/* interface name */
-#if defined(CFG_USE_AOSP_TETHERING_NAME)
-#define NIC_INF_NAME_IN_AP_MODE  "legacy%d"
-#endif
 #if CFG_TC10_FEATURE
 #define WIFI_VERION_INFO_FILE   "/data/misc/conn/.wifiver.info"
 #define WIFI_SOFTAP_INFO_FILE   "/data/misc/conn/.softap.info"
@@ -1887,21 +1884,12 @@ static struct wireless_dev *wlanNetCreate(PVOID pvData)
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(prWdev->wiphy);
 	kalMemZero(prGlueInfo, sizeof(GLUE_INFO_T));
 	/* 4 <3.1> Create net device */
-#if defined(CFG_USE_AOSP_TETHERING_NAME)
-	if (wlan_if_changed)
-		prGlueInfo->prDevHandler = alloc_netdev_mq(sizeof(P_GLUE_INFO_T), NIC_INF_NAME_IN_AP_MODE,
-							   NET_NAME_PREDICTABLE, ether_setup, CFG_MAX_TXQ_NUM);
-	else
-		prGlueInfo->prDevHandler = alloc_netdev_mq(sizeof(P_GLUE_INFO_T), NIC_INF_NAME,
-							   NET_NAME_PREDICTABLE, ether_setup, CFG_MAX_TXQ_NUM);
-#else
 	prGlueInfo->prDevHandler = alloc_netdev_mq(sizeof(P_GLUE_INFO_T), NIC_INF_NAME,
 						   NET_NAME_PREDICTABLE, ether_setup, CFG_MAX_TXQ_NUM);
 
 	/* Device can help us to save at most 3000 packets, after we stopped queue */
 	if (prGlueInfo->prDevHandler != NULL)
 		prGlueInfo->prDevHandler->tx_queue_len = 3000;
-#endif
 	if (!prGlueInfo->prDevHandler) {
 		DBGLOG(INIT, ERROR, "Allocating memory to net_device context failed\n");
 		return NULL;
@@ -3208,6 +3196,8 @@ static VOID wlanRemove(VOID)
 	if (prGlueInfo->prAdapter->fgIsP2PRegistered) {
 		DBGLOG(INIT, INFO, "p2pNetUnregister...\n");
 #if !CFG_SUPPORT_PERSIST_NETDEV
+		/* Release rtnl_lock() */
+		complete(&prGlueInfo->rP2pReq);
 		p2pNetUnregister(prGlueInfo, FALSE);
 #endif
 	}
@@ -3424,7 +3414,8 @@ VOID nicConfigProcSetCamCfgWrite(BOOLEAN enabled)
 	CMD_PS_PROFILE_T arPowerSaveMode[NETWORK_TYPE_INDEX_NUM];
 
 	/* 4 <1> Sanity Check */
-	if ((u4WlanDevNum == 0) || (u4WlanDevNum > CFG_MAX_WLAN_DEVICES)) {
+	ASSERT(u4WlanDevNum <= CFG_MAX_WLAN_DEVICES);
+	if (u4WlanDevNum == 0) {
 		DBGLOG(INIT, ERROR, "wlanLateResume u4WlanDevNum invalid!!\n");
 		return;
 	}

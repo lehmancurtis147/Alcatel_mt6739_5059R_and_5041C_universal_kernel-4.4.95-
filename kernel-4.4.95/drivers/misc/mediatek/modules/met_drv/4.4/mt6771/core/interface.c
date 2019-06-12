@@ -191,7 +191,7 @@ static void met_stop(void)
 #endif
 	sampler_stop();
 	/* the met.ko will be use by script "cat ...", release it */
-	if ((ondiemet_module[ONDIEMET_SSPM] == 0) || (sspm_buffer_size == -1))
+	if (ondiemet_module[ONDIEMET_SSPM] == 0)
 		ondiemet_log_manager_stop();
 	ondiemet_stop();
 	ondiemet_extract();

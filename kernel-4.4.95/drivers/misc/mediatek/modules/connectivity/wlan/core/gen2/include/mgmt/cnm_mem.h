@@ -487,6 +487,7 @@ struct _STA_RECORD_T {
 
 	UINT32 u4RxReorderFallAheadCnt;
 	UINT32 u4RxReorderFallBehindCnt;
+	UINT32 u4RxReorderFallBehindNoDropCnt;
 	UINT32 u4RxReorderHoleCnt;
 	UINT32 u4RxReorderHoleTimeoutCnt;
 

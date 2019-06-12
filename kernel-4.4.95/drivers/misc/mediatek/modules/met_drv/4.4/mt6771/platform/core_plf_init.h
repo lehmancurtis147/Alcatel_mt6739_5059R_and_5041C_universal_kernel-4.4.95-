@@ -45,8 +45,6 @@ extern bool (*mtk_get_vsync_offset_debug_status_symbol)(unsigned int *pui32Event
 extern bool (*mtk_enable_gpu_perf_monitor_symbol)(bool enable);
 extern bool (*mtk_get_gpu_pmu_init_symbol)(GPU_PMU *pmus, int pmu_size, int *ret_size);
 extern bool (*mtk_get_gpu_pmu_swapnreset_symbol)(GPU_PMU *pmus, int pmu_size);
-extern bool (*mtk_get_gpu_pmu_deinit_symbol)(void);
-extern bool (*mtk_get_gpu_pmu_swapnreset_stop_symbol)(void);
 
 typedef void (*gpu_power_change_notify_fp) (int power_on);
 extern bool mtk_register_gpu_power_change(const char *name, gpu_power_change_notify_fp callback);
@@ -84,7 +82,7 @@ extern char **(*vcorefs_get_src_req_name_symbol)(void);
 extern unsigned int *(*vcorefs_get_src_req_symbol)(void);
 extern int (*vcorefs_enable_debug_isr_symbol)(bool);
 extern int (*vcorefs_get_num_opp_symbol)(void);
-extern int *kicker_table_symbol;
+extern int *(*kicker_table_symbol)(void);
 
 extern char *governor_get_kicker_name(int id);
 extern int vcorefs_get_opp_info_num(void);
@@ -109,14 +107,5 @@ extern void *(*mt_cen_emi_base_get_symbol)(void);
 extern void *mt_cen_emi_base_get(void);
 extern struct metdevice met_sspm_emi;
 #endif /* MET_EMI */
-
-#ifdef MET_PTPOD
-#include <mtk_gpufreq.h>
-extern unsigned int (*mt_gpufreq_get_cur_volt_symbol)(void);
-#include <mach/mtk_cpufreq_api.h>
-extern unsigned int (*mt_cpufreq_get_cur_volt_symbol)(unsigned int cluster_id);
-#include <mtk_cpufreq_config.h>
-extern struct metdevice met_ptpod;
-#endif /* MET_PTPOD */
 
 #endif /*__CORE_PLF_INIT_H__*/

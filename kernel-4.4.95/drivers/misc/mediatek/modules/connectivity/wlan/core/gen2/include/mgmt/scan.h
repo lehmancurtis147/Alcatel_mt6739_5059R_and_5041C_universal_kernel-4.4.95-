@@ -840,6 +840,9 @@ VOID scanReportScanResultToAgps(P_ADAPTER_T prAdapter);
 P_BSS_DESC_T scanSearchBssDescByScoreForAis(P_ADAPTER_T prAdapter);
 VOID scanGetCurrentEssChnlList(P_ADAPTER_T prAdapter);
 
+VOID scanLogEssResult(P_ADAPTER_T prAdapter);
+VOID scanInitEssResult(P_ADAPTER_T prAdapter);
+
 #endif /* _SCAN_H */
 
 VOID scanCollectBeaconReport(IN P_ADAPTER_T prAdapter, PUINT_8 pucIEBuf,

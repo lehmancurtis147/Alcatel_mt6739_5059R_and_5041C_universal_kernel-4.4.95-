@@ -21,7 +21,7 @@
 
 #define CONFIG_LOG_STP_INTERNAL
 
-#if 1				/* #ifndef CONFIG_LOG_STP_INTERNAL */
+#ifndef LOG_STP_DEBUG_DISABLE		/* #ifndef CONFIG_LOG_STP_INTERNAL */
 #define STP_PKT_SZ  16
 #define STP_DMP_SZ 2048
 #define STP_PKT_NO 2048

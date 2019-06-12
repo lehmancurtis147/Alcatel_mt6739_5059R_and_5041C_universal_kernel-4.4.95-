@@ -27,11 +27,7 @@
 */
 
 #define P2P_INF_NAME "p2p%d"
-#if defined(CFG_USE_AOSP_TETHERING_NAME)
-#define AP_INF_NAME "wlan%d"
-#else
 #define AP_INF_NAME  "ap%d"
-#endif
 
 #define RUNNING_P2P_MODE  0
 #define RUNNING_AP_MODE   1

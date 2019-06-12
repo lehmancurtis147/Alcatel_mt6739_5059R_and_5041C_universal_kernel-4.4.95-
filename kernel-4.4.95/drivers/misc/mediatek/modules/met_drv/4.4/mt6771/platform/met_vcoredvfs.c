@@ -202,7 +202,7 @@ void sw_kicker_req(enum dvfs_kicker kicker, enum dvfs_opp opp)
 		return;
 
 	if (kicker_table_symbol)
-		vcorefs_kicker(NUM_KICKER, kicker_table_symbol);
+		vcorefs_kicker(NUM_KICKER, kicker_table_symbol());
 }
 
 void vcoredvfs_irq(int opp)
@@ -269,7 +269,7 @@ static void met_vcoredvfs_delete(void)
 static void met_vcoredvfs_start(void)
 {
 	if (kicker_table_symbol)
-		vcorefs_kicker(NUM_KICKER, kicker_table_symbol);
+		vcorefs_kicker(NUM_KICKER, kicker_table_symbol());
 
 	vcoredvfs_irq(-1);
 
@@ -297,7 +297,7 @@ static void met_vcoredvfs_stop(void)
 		spm_vcorefs_register_handler_symbol(NULL);
 
 	if (kicker_table_symbol)
-		vcorefs_kicker(NUM_KICKER, kicker_table_symbol);
+		vcorefs_kicker(NUM_KICKER, kicker_table_symbol());
 	vcoredvfs_irq(-1);
 }
 

@@ -158,6 +158,9 @@ typedef enum _ENUM_CMD_ID_T {
 	CMD_ID_GET_LTE_CHN = 0x87,	/* 0x87 (Query) */
 	CMD_ID_GET_CHN_LOADING = 0x88,	/* 0x88 (Query) */
 	CMD_ID_GET_STATISTICS_PL = 0x89,	/* 0x87 (Query) */
+#if CFG_SUPPORT_GAMING_MODE
+	CMD_ID_SET_GAMING_MODE = 0x8B,	/* 0x8B (Set) */
+#endif /* CFG_SUPPORT_GAMING_MODE */
 	CMD_ID_WIFI_LOG_LEVEL  = 0x8D,	/* 0x8D (Set / Query) */
 	CMD_ID_WFC_KEEP_ALIVE = 0xa0,	/* 0xa0(Set) */
 	CMD_ID_RSSI_MONITOR = 0xa1,	/* 0xa1(Set) */
@@ -295,7 +298,7 @@ typedef enum _ENUM_EVENT_ID_T {
 #if CFG_SUPPORT_P2P_ECSA
 typedef enum _ENUM_ECSA_STATE_T {
 	ECSA_EVENT_STATUS_SUCCESS = 0,
-	ECSA_EVENT_STATUS_UPDATE_BEACON = 1, /*Notify Driver to update GOâ€™s ECSA/CSA IE*/
+	ECSA_EVENT_STATUS_UPDATE_BEACON = 1, /*Notify Driver to update GO’s ECSA/CSA IE*/
 	ECSA_EVENT_STATUS_INVALID_PARAM = 2,
 	ECSA_EVENT_STATUS_CHNL_SWITCH_FAILED = 3,
 	ECSA_EVENT_STATUS_UNACCEPTABLE = 4,
@@ -1775,6 +1778,21 @@ typedef struct _EVENT_ECSA_RESULT_T {
 	UINT_8 ucReserved[4];
 } EVENT_ECSA_RESULT, *P_EVENT_ECSA_RESULT;
 #endif
+
+#if CFG_SUPPORT_GAMING_MODE
+struct GAMING_MODE_SETTING {
+	UINT_8 fgEnable;
+	UINT_8 aucReserved[7];
+};
+
+struct CMD_GAMING_MODE_HEADER {
+	UINT_8 ucVersion;
+	UINT_8 ucType;
+	UINT_8 ucMagicCode;
+	UINT_8 ucBufferLen;
+	struct GAMING_MODE_SETTING rSetting;
+};
+#endif /* CFG_SUPPORT_GAMING_MODE */
 
 struct CMD_EVENT_LOG_LEVEL {
 	UINT_32 u4Version;

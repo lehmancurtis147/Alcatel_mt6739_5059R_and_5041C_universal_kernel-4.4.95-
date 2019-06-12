@@ -19,6 +19,4 @@ extern int sspm_attr_uninit(struct device *dev);
 extern int ondiemet_attr_init(struct device *dev);
 extern int ondiemet_attr_uninit(struct device *dev);
 
-extern int sspm_buffer_size;
-
 #endif				/* __ONDIEMET_H */

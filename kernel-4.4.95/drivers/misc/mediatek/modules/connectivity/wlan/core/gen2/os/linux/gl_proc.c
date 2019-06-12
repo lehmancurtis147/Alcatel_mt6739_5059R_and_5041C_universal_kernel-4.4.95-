@@ -900,54 +900,76 @@ INT32 wlan_get_link_mode(void)
 	return 0;
 }
 
-static ssize_t procfile_write(struct file *filp, const char __user *buffer,
-			      size_t count, loff_t *f_pos)
+static ssize_t procfile_write(struct file *filp, const char __user *buffer, size_t count, loff_t *f_pos)
 {
 	char buf[256];
 	char *pBuf;
 	ULONG len = count;
-	unsigned int x = 0;
+	INT32 x = 0, y = 0, z = 0;
 	char *pToken = NULL;
 	char *pDelimiter = " \t";
-	INT32 i4Ret = -1;
+	INT32 i4Ret = 0;
 
 	DBGLOG(INIT, TRACE, "write parameter len = %d\n\r", (INT32) len);
 	if (len >= sizeof(buf)) {
 		DBGLOG(INIT, ERROR, "input handling fail!\n");
+		len = sizeof(buf) - 1;
 		return -1;
 	}
 
 	if (copy_from_user(buf, buffer, len))
 		return -EFAULT;
-
 	buf[len] = '\0';
 	DBGLOG(INIT, TRACE, "write parameter data = %s\n\r", buf);
+
 	pBuf = buf;
 	pToken = strsep(&pBuf, pDelimiter);
-	if (pToken) {
-		i4Ret = kalkStrtou32(pToken, 16, &x);
+
+	if (pToken) /* x = NULL != pToken ? simple_strtol(pToken, NULL, 16) : 0; */
+		i4Ret = kalkStrtos32(pToken, 16, &x);
+	if (!i4Ret)
+		DBGLOG(INIT, TRACE, "x = 0x%x\n", x);
+
+	pToken = strsep(&pBuf, "\t\n ");
+	if (pToken != NULL) {
+		i4Ret = kalkStrtos32(pToken, 16, &y); /* y = simple_strtol(pToken, NULL, 16); */
 		if (!i4Ret)
-			DBGLOG(INIT, TRACE, " x(0x%08x)\n\r", x);
+			DBGLOG(INIT, TRACE, "y = 0x%08x\n\r", y);
+	} else {
+		y = 3000;
+		/*efuse, register read write default value */
+		if (0x11 == x || 0x12 == x || 0x13 == x)
+			y = 0x80000000;
 	}
 
-	if ((!i4Ret) && (ARRAY_SIZE(wlan_dev_dbg_func) > x) &&
-	    (NULL != wlan_dev_dbg_func[x]))
+	pToken = strsep(&pBuf, "\t\n ");
+	if (pToken != NULL) {
+		i4Ret = kalkStrtos32(pToken, 16, &z); /* z = simple_strtol(pToken, NULL, 16); */
+		if (!i4Ret)
+			DBGLOG(INIT, TRACE, "z = 0x%08x\n\r", z);
+	} else {
+		z = 10;
+		/*efuse, register read write default value */
+		if (0x11 == x || 0x12 == x || 0x13 == x)
+			z = 0xffffffff;
+	}
+
+	DBGLOG(INIT, TRACE, " x(0x%08x), y(0x%08x), z(0x%08x)\n\r", x, y, z);
+
+	if ((ARRAY_SIZE(wlan_dev_dbg_func) > x) && NULL != wlan_dev_dbg_func[x])
 		(*wlan_dev_dbg_func[x]) ();
 	else
-		DBGLOG(INIT, ERROR,
-		       "no handler defined for command id(0x%08x), pToken=%p, i4Ret=%d\n\r",
-		       x, pToken, i4Ret);
+		DBGLOG(INIT, ERROR, "no handler defined for command id(0x%08x)\n\r", x);
 
+	/* len = gCoexBuf1.availSize; */
 	return len;
 }
-
-static const struct file_operations proc_fops = {
-	.owner = THIS_MODULE,
-	.read = procfile_read,
-	.write = procfile_write,
-};
+	static const struct file_operations proc_fops = {
+		.owner = THIS_MODULE,
+		.read = procfile_read,
+		.write = procfile_write,
+	};
 #endif
-
 #if CFG_SUPPORT_SET_CAM_BY_PROC
 static ssize_t procSetCamCfgWrite(struct file *file, const char *buffer, size_t count, loff_t *data)
 {
@@ -1238,7 +1260,9 @@ static ssize_t cfgWrite(struct file *filp, const char __user *buf, size_t count,
 	UINT_8 token_num = 1;
 
 	kalMemSet(aucCfgBuf, '\0', u4CopySize);
-	u4CopySize = (count < u4CopySize) ? count : (u4CopySize - 1);
+
+	if (u4CopySize >= (count + 1))
+		u4CopySize = count;
 
 	if (copy_from_user(aucCfgBuf, buf, u4CopySize)) {
 		DBGLOG(INIT, ERROR, "copy from user failed\n");

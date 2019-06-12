@@ -251,11 +251,11 @@ static void statsInfoEnvDisplay(GLUE_INFO_T *prGlueInfo, UINT8 *prInBuf, UINT32 
 					    prInfo->u4TxRateCntHT[6], prInfo->u4TxRateCntHT[7]);
 		}
 
-		if ((prStaRec->u4RxReorderFallAheadCnt != 0) ||
-		    (prStaRec->u4RxReorderFallBehindCnt != 0) || (prStaRec->u4RxReorderHoleCnt != 0)) {
-			DBGLOG(RX, INFO, "<stats> TREORDER (%u %u %u)\n",
-					    prStaRec->u4RxReorderFallAheadCnt,
-					    prStaRec->u4RxReorderFallBehindCnt, prStaRec->u4RxReorderHoleCnt);
+		if ((prStaRec->u4RxReorderFallAheadCnt != 0) || (prStaRec->u4RxReorderFallBehindCnt != 0) ||
+		    (prStaRec->u4RxReorderHoleCnt != 0) || (prStaRec->u4RxReorderFallBehindNoDropCnt != 0)) {
+			DBGLOG(RX, INFO, "<stats> TREORDER (%u %u %u %u)\n",
+					    prStaRec->u4RxReorderFallAheadCnt, prStaRec->u4RxReorderFallBehindCnt,
+					    prStaRec->u4RxReorderHoleCnt, prStaRec->u4RxReorderFallBehindNoDropCnt);
 		}
 
 		if (prInfo->u4RxDataCntErr == 0) {
@@ -435,36 +435,38 @@ static void statsInfoEnvDisplay(GLUE_INFO_T *prGlueInfo, UINT8 *prInBuf, UINT32 
 #endif
 
 #if CFG_ENABLE_PER_STA_STATISTICS_LOG
-		UINT_32 u4LinkScore;
-		/* rQueryStaStatistics.u4TxFailCount + rQueryStaStatistics.u4TxLifeTimeoutCount; */
-		UINT_32 u4TotalError = prInfo->u4TxDataCntErr;
-		UINT_32 u4TxExceedThresholdCount = prStaRec->u4ThresholdCounter;
-		UINT_32 u4TxTotalCount = prStaRec->u4TotalTxPktsNumber;
+		if (prStaRec->aucMacAddr != NULL) {
+			UINT_32 u4LinkScore;
+			/* rQueryStaStatistics.u4TxFailCount + rQueryStaStatistics.u4TxLifeTimeoutCount; */
+			UINT_32 u4TotalError = prInfo->u4TxDataCntErr;
+			UINT_32 u4TxExceedThresholdCount = prStaRec->u4ThresholdCounter;
+			UINT_32 u4TxTotalCount = prStaRec->u4TotalTxPktsNumber;
 
-		if (u4TxTotalCount) {
-			if (u4TxExceedThresholdCount <= u4TxTotalCount)
-				u4LinkScore = (90 - ((u4TxExceedThresholdCount * 90) / u4TxTotalCount));
-			else
-				u4LinkScore = 0;
-		} else {
-			u4LinkScore = 90;
+			if (u4TxTotalCount) {
+				if (u4TxExceedThresholdCount <= u4TxTotalCount)
+					u4LinkScore = (90 - ((u4TxExceedThresholdCount * 90) / u4TxTotalCount));
+				else
+					u4LinkScore = 0;
+			} else {
+				u4LinkScore = 90;
+			}
+			u4LinkScore += 10;
+			if (u4LinkScore == 10) {
+				if (u4TotalError <= u4TxTotalCount)
+					u4LinkScore = (10 - ((u4TotalError * 10) / u4TxTotalCount));
+				else
+					u4LinkScore = 0;
+			}
+			if (u4LinkScore > 100)
+				u4LinkScore = 100;
+
+			DBGLOG(RX, INFO, "<stats> link_score=%d for [%pM](%d)\n",
+						u4LinkScore, prStaRec->aucMacAddr, prStaRec->ucNetTypeIndex);
+
+			/* Reset statistics */
+			prStaRec->u4ThresholdCounter = 0;
+			prStaRec->u4TotalTxPktsNumber = 0;
 		}
-		u4LinkScore += 10;
-		if (u4LinkScore == 10) {
-			if (u4TotalError <= u4TxTotalCount)
-				u4LinkScore = (10 - ((u4TotalError * 10) / u4TxTotalCount));
-			else
-				u4LinkScore = 0;
-		}
-		if (u4LinkScore > 100)
-			u4LinkScore = 100;
-
-		DBGLOG(RX, INFO, "<stats> link_score=%d for [%pM](%d)\n",
-					u4LinkScore, prStaRec->aucMacAddr, prStaRec->ucNetTypeIndex);
-
-		/* Reset statistics */
-		prStaRec->u4ThresholdCounter = 0;
-		prStaRec->u4TotalTxPktsNumber = 0;
 #endif
 
 		/* reset */
@@ -475,6 +477,7 @@ static void statsInfoEnvDisplay(GLUE_INFO_T *prGlueInfo, UINT8 *prInBuf, UINT32 
 		prStaRec->u4RxReorderFallAheadCnt = 0;
 		prStaRec->u4RxReorderFallBehindCnt = 0;
 		prStaRec->u4RxReorderHoleCnt = 0;
+		prStaRec->u4RxReorderFallBehindNoDropCnt = 0;
 	}
 
 	STATS_DRIVER_OWN_RESET();
@@ -785,6 +788,7 @@ static void statsInfoEnvDisplay(GLUE_INFO_T *prGlueInfo, UINT8 *prInBuf, UINT32 
 		prStaRec->u4RxReorderFallAheadCnt = 0;
 		prStaRec->u4RxReorderFallBehindCnt = 0;
 		prStaRec->u4RxReorderHoleCnt = 0;
+		prStaRec->u4RxReorderFallBehindNoDropCnt = 0;
 	}
 
 	STATS_DRIVER_OWN_RESET();
@@ -908,7 +912,7 @@ VOID statsEnvReportDetect(ADAPTER_T *prAdapter, UINT8 ucStaRecIndex)
 	if (prStaRec == NULL) {
 		/* check station record but skip broadcast id: 0xFF */
 		if (ucStaRecIndex != 0xFF)
-			DBGLOG(TX, WARN, "%s : prStaRec[%d] is null!", __func__, ucStaRecIndex);
+			DBGLOGLIMITED(TX, WARN, "%s : prStaRec[%d] is null!", __func__, ucStaRecIndex);
 		return;
 	}
 

@@ -28,8 +28,6 @@ bool (*mtk_get_vsync_offset_debug_status_symbol)(unsigned int *pui32EventStatus)
 bool (*mtk_enable_gpu_perf_monitor_symbol)(bool enable);
 bool (*mtk_get_gpu_pmu_init_symbol)(GPU_PMU *pmus, int pmu_size, int *ret_size);
 bool (*mtk_get_gpu_pmu_swapnreset_symbol)(GPU_PMU *pmus, int pmu_size);
-bool (*mtk_get_gpu_pmu_deinit_symbol)(void);
-bool (*mtk_get_gpu_pmu_swapnreset_stop_symbol)(void);
 
 unsigned int (*mt_gpufreq_get_cur_freq_symbol)(void);
 unsigned int (*mt_gpufreq_get_thermal_limit_freq_symbol)(void);
@@ -62,18 +60,13 @@ int (*vcorefs_get_curr_vcore_symbol)(void);
 int (*vcorefs_get_curr_ddr_symbol)(void);
 u32 (*spm_vcorefs_get_MD_status_symbol)(void);
 int (*vcorefs_get_num_opp_symbol)(void);
-int *kicker_table_symbol;
+int *(*kicker_table_symbol)(void);
 
 #endif /* MET_VCOREDVFS */
 
 #ifdef MET_EMI
 void *(*mt_cen_emi_base_get_symbol)(void);
 #endif /* MET_EMI */
-
-#ifdef MET_PTPOD
-unsigned int (*mt_gpufreq_get_cur_volt_symbol)(void);
-unsigned int (*mt_cpufreq_get_cur_volt_symbol)(unsigned int cluster_id);
-#endif /* MET_PTPOD */
 
 static int met_symbol_get(void)
 {
@@ -108,8 +101,6 @@ static int met_symbol_get(void)
 	_MET_SYMBOL_GET(mt_gpufreq_get_thermal_limit_freq);
 	_MET_SYMBOL_GET(mtk_register_gpu_power_change);
 	_MET_SYMBOL_GET(mtk_unregister_gpu_power_change);
-	_MET_SYMBOL_GET(mtk_get_gpu_pmu_swapnreset_stop);
-	_MET_SYMBOL_GET(mtk_get_gpu_pmu_deinit);
 #endif /* MET_GPU */
 
 #ifdef MET_VCOREDVFS
@@ -135,11 +126,6 @@ static int met_symbol_get(void)
 
 #ifdef MET_EMI
 	_MET_SYMBOL_GET(mt_cen_emi_base_get);
-#endif
-
-#ifdef MET_PTPOD
-	_MET_SYMBOL_GET(mt_gpufreq_get_cur_volt);
-	_MET_SYMBOL_GET(mt_cpufreq_get_cur_volt);
 #endif
 
 	return 0;
@@ -175,8 +161,6 @@ static int met_symbol_put(void)
 	_MET_SYMBOL_PUT(mt_gpufreq_get_thermal_limit_freq);
 	_MET_SYMBOL_PUT(mtk_register_gpu_power_change);
 	_MET_SYMBOL_PUT(mtk_unregister_gpu_power_change);
-	_MET_SYMBOL_PUT(mtk_get_gpu_pmu_swapnreset_stop);
-	_MET_SYMBOL_PUT(mtk_get_gpu_pmu_deinit);
 #endif /* mET_GPU */
 
 #ifdef MET_VCOREDVFS
@@ -204,11 +188,6 @@ static int met_symbol_put(void)
 	_MET_SYMBOL_PUT(mt_cen_emi_base_get);
 #endif
 
-#ifdef MET_PTPOD
-	_MET_SYMBOL_PUT(mt_gpufreq_get_cur_volt);
-	_MET_SYMBOL_PUT(mt_cpufreq_get_cur_volt);
-#endif
-
 	return 0;
 }
 
@@ -232,11 +211,6 @@ int core_plf_init(void)
 #ifdef MET_EMI
 	met_register(&met_sspm_emi);
 #endif
-
-#ifdef MET_PTPOD
-	met_register(&met_ptpod);
-#endif
-
 	return 0;
 }
 
@@ -259,9 +233,5 @@ void core_plf_exit(void)
 
 #ifdef MET_EMI
 	met_deregister(&met_sspm_emi);
-#endif
-
-#ifdef MET_PTPOD
-	met_deregister(&met_ptpod);
 #endif
 }

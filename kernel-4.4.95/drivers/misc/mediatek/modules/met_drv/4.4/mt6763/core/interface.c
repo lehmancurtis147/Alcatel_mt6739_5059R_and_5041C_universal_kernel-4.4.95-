@@ -180,7 +180,7 @@ static int met_run(void)
 #ifdef MET_USER_EVENT_SUPPORT
 	bltab.flag &= (~MET_CLASS_ALL);
 #endif
-/*	ondiemet_start(); */
+	ondiemet_start();
 	return 0;
 }
 
@@ -191,12 +191,10 @@ static void met_stop(void)
 #endif
 	sampler_stop();
 	/* the met.ko will be use by script "cat ...", release it */
-	/*
 	if (ondiemet_module[ONDIEMET_SSPM] == 0)
 		ondiemet_log_manager_stop();
 	ondiemet_stop();
 	ondiemet_extract();
-	*/
 }
 
 static ssize_t ver_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -1240,10 +1238,8 @@ int fs_reg(void)
 
 	met_register(&met_stat);
 
-	/*
 	ondiemet_log_manager_init(met_device.this_device);
 	ondiemet_attr_init(met_device.this_device);
-	*/
 
 	return ret;
 }
@@ -1301,10 +1297,8 @@ void fs_unreg(void)
 	device_remove_file(met_device.this_device, &dev_attr_plf);
 	device_remove_file(met_device.this_device, &dev_attr_hash);
 
-	/*
 	ondiemet_log_manager_uninit(met_device.this_device);
 	ondiemet_attr_uninit(met_device.this_device);
-	*/
 
 	misc_deregister(&met_device);
 #ifdef MET_SUSPEND_HAND

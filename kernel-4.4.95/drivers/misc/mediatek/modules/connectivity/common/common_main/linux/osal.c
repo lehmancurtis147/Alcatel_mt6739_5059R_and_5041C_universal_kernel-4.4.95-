@@ -1371,15 +1371,6 @@ VOID osal_get_local_time(PUINT64 sec, PULONG nsec)
 		pr_err("The input parameters error when get local time\n");
 }
 
-UINT64 osal_elapsed_us(UINT64 ts, ULONG usec)
-{
-	UINT64 current_ts = 0;
-	ULONG current_usec = 0;
-
-	osal_get_local_time(&current_ts, &current_usec);
-	return (current_ts*1000000 + current_usec) - (ts*1000000 + usec);
-}
-
 VOID osal_buffer_dump(const PUINT8 buf, const PUINT8 title, const UINT32 len, const UINT32 limit)
 {
 	INT32 k;
@@ -1459,94 +1450,4 @@ VOID osal_set_op_result(P_OSAL_OP pOp, INT32 result)
 	if (pOp)
 		pOp->result = result;
 
-}
-
-VOID osal_opq_dump(const char *qName, P_OSAL_OP_Q pOpQ)
-{
-	/* Line format:
-	 * [LogicalIdx(PhysicalIdx)]Address:OpId(Ref)(Result)-Info-OpData0,OpData1,OpData2,OpData3,OpData5_
-	 *	[LogicalIdx]	max 10+2=12 chars (decimal)
-	 *	(PhysicalIdx)	max 10+2=12 chars (decimal)
-	 *	Address:	max 16+1=17 chars (hex)
-	 *	OpId		max 10 chars (decimal)
-	 *	(Ref)		max 2+2=4 chars (should only be 1 digit, reserve 2 in case of negative number)
-	 *	(Result)	max 11+2=13 chars (signed decimal)
-	 *	-Info-		max 8+2=10 chars (hex)
-	 *	OpData,		max 16+1=17 chars (hex)
-	 */
-#define OPQ_DUMP_OP_PER_LINE 1
-#define OPQ_DUMP_OPDATA_PER_OP 6
-#define OPQ_DUMP_OP_BUF_SIZE (12 + 12 + 17 + 10 + 4 + 13 + 10 + (17 * (OPQ_DUMP_OPDATA_PER_OP)) + 1)
-#define OPQ_DUMP_LINE_BUF_SIZE ((OPQ_DUMP_OP_BUF_SIZE * OPQ_DUMP_OP_PER_LINE) + 1)
-	UINT32 rd;
-	UINT32 wt;
-	UINT32 idx = 0;
-	UINT32 opDataIdx;
-	UINT32 idxInBuf;
-	int printed;
-	int err;
-	P_OSAL_OP op;
-	char buf[OPQ_DUMP_LINE_BUF_SIZE];
-
-	err = osal_lock_sleepable_lock(&pOpQ->sLock);
-	if (err) {
-		pr_err("Failed to lock queue (%d)\n", err);
-		return;
-	}
-
-	rd = pOpQ->read;
-	wt = pOpQ->write;
-
-	pr_info("%s(%p), sz:%u/%u, rd:%u, wt:%u\n", qName, pOpQ, RB_COUNT(pOpQ), RB_SIZE(pOpQ), rd, wt);
-	while (rd != wt && idx < RB_SIZE(pOpQ)) {
-		idxInBuf = idx % OPQ_DUMP_OP_PER_LINE;
-		op = pOpQ->queue[rd & RB_MASK(pOpQ)];
-
-		if (idxInBuf == 0) {
-			printed = 0;
-			buf[0] = 0;
-		}
-
-		if (op) {
-			printed += sprintf(buf + printed, "[%u(%u)]%p:%u(%d)(%d)-%u-",
-						idx,
-						(rd & RB_MASK(pOpQ)),
-						op,
-						op->op.opId,
-						atomic_read(&op->ref_count),
-						op->result,
-						op->op.u4InfoBit);
-			for (opDataIdx = 0; opDataIdx < OPQ_DUMP_OPDATA_PER_OP; opDataIdx++)
-				printed += sprintf(buf + printed, "%zx,", op->op.au4OpData[opDataIdx]);
-			buf[printed-1] = ' ';
-		} else
-			printed += sprintf(buf + printed, "[%u(%u)]%p ", idx, (rd & RB_MASK(pOpQ)), op);
-		buf[printed++] = ' ';
-
-		if (idxInBuf == OPQ_DUMP_OP_PER_LINE - 1  || rd == wt - 1) {
-			buf[printed - 1] = 0;
-			pr_info("%s\n", buf);
-		}
-		rd++;
-		idx++;
-	}
-	osal_unlock_sleepable_lock(&pOpQ->sLock);
-}
-
-MTK_WCN_BOOL osal_opq_has_op(P_OSAL_OP_Q pOpQ, P_OSAL_OP pOp)
-{
-	UINT32 rd;
-	UINT32 wt;
-	P_OSAL_OP op;
-
-	rd = pOpQ->read;
-	wt = pOpQ->write;
-
-	while (rd != wt) {
-		op = pOpQ->queue[rd & RB_MASK(pOpQ)];
-		if (op == pOp)
-			return MTK_WCN_BOOL_TRUE;
-		rd++;
-	}
-	return MTK_WCN_BOOL_FALSE;
 }

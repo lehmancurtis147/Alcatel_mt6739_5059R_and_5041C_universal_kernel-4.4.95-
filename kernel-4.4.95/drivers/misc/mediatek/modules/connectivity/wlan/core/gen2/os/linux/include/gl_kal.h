@@ -872,7 +872,7 @@ INT_32 kalPerMonStart(IN P_GLUE_INFO_T prGlueInfo);
 INT_32 kalPerMonStop(IN P_GLUE_INFO_T prGlueInfo);
 INT_32 kalPerMonDestroy(IN P_GLUE_INFO_T prGlueInfo);
 VOID kalPerMonHandler(IN P_ADAPTER_T prAdapter, ULONG ulParam);
-INT_32 kalBoostCpu(UINT_32 core_num);
+INT_32 kalBoostCpu(IN P_GLUE_INFO_T prGlueInfo, UINT_32 core_num);
 INT32 kalSetCpuNumFreq(UINT_32 core_num, UINT_32 freq);
 INT_32 kalFbNotifierReg(IN P_GLUE_INFO_T prGlueInfo);
 VOID kalFbNotifierUnReg(VOID);
