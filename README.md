@@ -1,29 +1,35 @@
-# Alcatel_1x_5059D_kernel-4.4.95
--------------------------------------------------------------------------
+# WIP DO NOT USE YET !!!!!
+# Alcatel Tetra Kernel Source
+-------
 
-Перед сборкой делаем экспорт
-export TARGET_BUILD_VARIANT=user
+Before assembly, give the following command.
 
-И собираем ядро: build.sh
+``` bash
+export TARGET_BUILD_VARIANT = user
+```
 
-Если сборка прошла успешно, переходим в папку my_kernel, в папке должен лежать рабочий boot.img
-и запускаем: repack.sh
-забираем в папке новый boot и модули из папки modules
+Them build the kernel using this command. 
 
-bt_drv.ko
+``` bash
+build.sh
+```
 
-fmradio_drv.ko
+If the assembly was successful, go to the my_kernel folder, and the working boot.img should be in the folder and run: 
 
-gps_drv.ko
+``` bash
+repack.sh
+```
 
-wlan_drv.ko
+ Which will take the new boot.img in the my_kernel folder and the modules from the modules folder, and combine them into a finished boot.img. 
 
-wmt_chrdev_wifi.ko
+-bt_drv.ko
+-fmradio_drv.ko
+-gps_drv.ko
+-wlan_drv.ko
+-wmt_chrdev_wifi.ko
+-wmt_drv.ko
 
-wmt_drv.ko
+Thanks to __vgdn194__ for the instruction, and LgPWNd from whom I forked the repo that made this possible.
 
--------------------------------------------------------------------------
-Спасибо "vgdn1942" за инструкцию
-
-https://4pda.ru/forum/index.php?showtopic=583114&view=findpost&p=86045582
+[REFERENCE](https://w3bsit3-dns.com/forum/index.php?showtopic=583114&view=findpost&p=86045582)
 
