@@ -8,7 +8,7 @@ Before assembly, give the following command.
 export TARGET_BUILD_VARIANT = user
 ```
 
-Them build the kernel using this command. 
+Then build the kernel using this command. 
 
 ``` bash
 build.sh
