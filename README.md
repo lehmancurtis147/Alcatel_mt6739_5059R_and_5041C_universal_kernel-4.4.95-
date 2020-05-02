@@ -5,7 +5,7 @@
 Before assembly, give the following command.
 
 ``` bash
-export TARGET_BUILD_VARIANT = user
+export TARGET_BUILD_VARIANT=user
 ```
 
 Then build the kernel using this command. 
